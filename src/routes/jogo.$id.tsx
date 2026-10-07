@@ -1,18 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+const Board3D = lazy(() => import("@/components/Board3D"));
 import { supabase } from "@/integrations/supabase/client";
 import {
-  applyMove, applyPower, movesFrom, powerTargets, isFrozen, isShielded,
-  GLYPH, POWERS, MAX_ENERGY, type Color, type GameState, type PowerId,
+  applyMove, applyPower, movesFrom, powerTargets,
+  POWERS, MAX_ENERGY, type Color, type GameState, type PowerId,
 } from "@/lib/chess";
 
 export const Route = createFileRoute("/jogo/$id")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Partida — Xadrez 2.0" },
+      { title: "Partida — Chess League" },
       { name: "description", content: "Você foi desafiado para uma partida de Xadrez 2.0 com poderes." },
-      { property: "og:title", content: "Você foi desafiado — Xadrez 2.0" },
+      { property: "og:title", content: "Você foi desafiado — Chess League" },
       { property: "og:description", content: "Entre na partida de xadrez com poderes pelo link." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -117,7 +118,6 @@ function GamePage() {
   if (!s || !row || !me) return <main className="flex min-h-screen items-center justify-center text-muted-foreground">Carregando partida...</main>;
 
   const flip = me === "b";
-  const order = Array.from({ length: 64 }, (_, k) => (flip ? 63 - k : k));
   const shareUrl = typeof window !== "undefined" ? window.location.href : "";
   const meColor: Color = me === "spec" ? "w" : me;
   const opp: Color = meColor === "w" ? "b" : "w";
@@ -133,32 +133,15 @@ function GamePage() {
       <div className="mx-auto flex max-w-6xl flex-col gap-6 lg:flex-row">
         <div className="flex-1">
           <div className="mb-3 flex items-center justify-between">
-            <Link to="/" className="font-display text-2xl font-bold">Xadrez <span className="text-primary">2.0</span></Link>
+            <Link to="/" className="font-display text-2xl font-bold">Chess <span className="text-primary">League</span></Link>
             <span className={`rounded-full px-4 py-1 text-sm font-semibold ${myTurn ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{status}</span>
           </div>
           <EnergyBar label={me === "spec" ? "Pretas" : "Adversário"} value={s.energy[me === "spec" ? "b" : opp]} />
-          <div className="my-3 grid aspect-square w-full max-w-[640px] grid-cols-8 grid-rows-8 overflow-hidden rounded-xl border-4 border-border shadow-[var(--glow)]">
-            {order.map((i) => {
-              const p = s.board[i];
-              const dark = (Math.floor(i / 8) + (i % 8)) % 2 === 1;
-              const hl = highlights.has(i);
-              const isLast = s.last?.includes(i);
-              return (
-                <button key={i} onClick={() => click(i)}
-                  className={`relative flex items-center justify-center ${dark ? "bg-board-dark" : "bg-board-light"} ${sel === i || tpFrom === i ? "ring-4 ring-inset ring-primary" : ""}`}>
-                  {isLast && <span className="absolute inset-0 bg-primary/20" />}
-                  {hl && <span className={`absolute ${p ? "inset-1 rounded-full border-4 border-primary/70" : "h-1/4 w-1/4 rounded-full bg-primary/70"}`} />}
-                  {p && (
-                    <span className={`relative select-none text-[clamp(1.6rem,6vw,3.4rem)] leading-none ${p.c === "w" ? "text-piece-white" : "text-piece-black"} ${isFrozen(p, s.move) ? "opacity-60" : ""}`}
-                      style={{ textShadow: p.c === "w" ? "0 2px 2px oklch(0 0 0 / .6)" : "0 1px 1px oklch(1 0 0 / .3)" }}>
-                      {GLYPH[p.t]}
-                    </span>
-                  )}
-                  {p && isShielded(p, s.move) && <span className="absolute right-0.5 top-0.5 text-xs">🛡️</span>}
-                  {p && isFrozen(p, s.move) && <span className="absolute left-0.5 top-0.5 text-xs">❄️</span>}
-                </button>
-              );
-            })}
+          <div className="relative my-3 h-[62vh] min-h-[420px] w-full overflow-hidden rounded-2xl border border-primary/40 shadow-[var(--glow)]">
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">Carregando arena...</div>}>
+              <Board3D state={s} flip={flip} highlights={highlights} selected={sel ?? tpFrom} onSquare={click} />
+            </Suspense>
+            <p className="pointer-events-none absolute bottom-2 left-3 text-xs text-muted-foreground">Arraste para girar a câmera · role para zoom</p>
           </div>
           <EnergyBar label={me === "spec" ? "Brancas" : "Você"} value={s.energy[me === "spec" ? "w" : meColor]} />
         </div>
@@ -211,7 +194,7 @@ function GamePage() {
 
 function EnergyBar({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex max-w-[640px] items-center gap-3 text-sm">
+    <div className="flex w-full items-center gap-3 text-sm">
       <span className="w-24 text-muted-foreground">{label}</span>
       <div className="flex flex-1 gap-1">
         {Array.from({ length: MAX_ENERGY }, (_, i) => (
