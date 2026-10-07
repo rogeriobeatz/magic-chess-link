@@ -28,10 +28,10 @@ export function initialState(): GameState {
   const back: PType[] = ["r", "n", "b", "q", "k", "b", "n", "r"];
   const board: Square[] = Array(64).fill(null);
   for (let i = 0; i < 8; i++) {
-    board[i] = { t: back[i], c: "b" };
+    board[i] = { t: back[i]!, c: "b" };
     board[8 + i] = { t: "p", c: "b" };
     board[48 + i] = { t: "p", c: "w" };
-    board[56 + i] = { t: back[i], c: "w" };
+    board[56 + i] = { t: back[i]!, c: "w" };
   }
   return { board, turn: "w", move: 0, energy: { w: 1, b: 1 }, powerUsed: false, winner: null, log: [] };
 }
@@ -39,7 +39,7 @@ export function initialState(): GameState {
 const rc = (i: number) => [Math.floor(i / 8), i % 8] as const;
 const idx = (r: number, c: number) => r * 8 + c;
 const inside = (r: number, c: number) => r >= 0 && r < 8 && c >= 0 && c < 8;
-export const sqName = (i: number) => "abcdefgh"[i % 8] + (8 - Math.floor(i / 8));
+export const sqName = (i: number) => "abcdefgh".charAt(i % 8) + (8 - Math.floor(i / 8));
 
 export const isShielded = (p: Piece, move: number) => (p.shield ?? -1) > move;
 export const isFrozen = (p: Piece, move: number) => (p.frozen ?? -1) > move;
