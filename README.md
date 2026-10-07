@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Chess Powers Online
+
+quero que crie um jogo de xadrez 2.0 com poderes, e que de pra jogar online só enviando o link para outro participante! enfim, o jogo é de partidas pvp, sem ranking, focado nas partidas
 
 This project was built with [Lovable](https://lovable.dev).
 
+**Live app**: https://magic-chess-link.lovable.app
+
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/ce83b0a2-f486-42cd-94e7-67a4189ce984).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
