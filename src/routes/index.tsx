@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { initialState, POWERS } from "@/lib/chess";
+import arenaBg from "../../img-refs/BG - Arena Cósmica de Xadrez Neon.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,47 +42,126 @@ function Index() {
   }
 
   return (
-    <main className="min-h-screen px-6 py-16">
-      <div className="mx-auto max-w-3xl text-center">
-        <p className="font-display text-sm uppercase tracking-[0.4em] text-primary">Arena PvP</p>
-        <h1 className="mt-4 font-display text-6xl font-bold md:text-8xl">
-          Chess <span className="text-primary">League</span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-          Xadrez em uma arena 3D neon, com poderes, explosões e regras malucas. Crie uma partida, envie o link e enfrente seu amigo em tempo real.
-        </p>
-        <button
-          onClick={create}
-          disabled={loading}
-          className="mt-10 rounded-full bg-primary px-10 py-4 font-display text-lg font-semibold text-primary-foreground shadow-[var(--glow)] transition hover:scale-105 disabled:opacity-60"
-        >
-          {loading ? "Criando..." : "Criar partida"}
-        </button>
-        {err && <p className="mt-4 text-destructive">{err}</p>}
-      </div>
-
-      <section className="mx-auto mt-20 grid max-w-4xl gap-4 sm:grid-cols-2">
-        {Object.values(POWERS).map((p) => (
-          <div key={p.name} className="rounded-2xl border bg-card p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-xl font-semibold">{p.icon} {p.name}</h3>
-              <span className="rounded-full bg-secondary px-3 py-1 text-sm text-primary">{p.cost} ⚡</span>
+    <main
+      className="landing-shell min-h-screen px-4 py-5"
+      style={{
+        backgroundImage: `radial-gradient(circle at 12% 12%, rgba(41, 230, 255, 0.12), transparent 20%), radial-gradient(circle at 80% 10%, rgba(255, 47, 209, 0.12), transparent 24%), linear-gradient(180deg, rgba(7, 7, 17, 1) 0%, rgba(10, 12, 24, 0.98) 100%), url(${arenaBg})`,
+        backgroundSize: "cover, cover, cover, cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="landing-wrap">
+        <header className="landing-header">
+          <div className="landing-brand" aria-label="Chess League">
+            <span className="landing-brand-mark">♔</span>
+            <div className="landing-brand-copy">
+              <span>CHESS</span>
+              <strong>LEAGUE</strong>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{p.desc}</p>
           </div>
-        ))}
-      </section>
 
-      <section className="mx-auto mt-10 max-w-4xl rounded-2xl border bg-card p-6 text-sm text-muted-foreground">
-        <h2 className="font-display text-lg font-semibold text-foreground">Regras</h2>
-        <ul className="mt-3 list-disc space-y-1 pl-5">
-          <li>Cada jogador ganha 1 de energia por turno (máx. 10).</li>
-          <li>Você pode usar 1 poder por turno, antes de mover — e ainda precisa mover.</li>
-          <li>Não existe xeque-mate: vence quem capturar o rei adversário.</li>
-          <li>Peões que chegam ao fim viram Dama.</li>
-          <li>Capturar uma peça dá +1 de energia bônus.</li>
-        </ul>
-      </section>
+          <button
+            type="button"
+            onClick={create}
+            disabled={loading}
+            className="landing-cta"
+          >
+            {loading ? "Criando..." : "Criar partida"}
+          </button>
+        </header>
+
+        <section className="hero-grid">
+          <div className="hero-copy">
+            <span className="eyebrow">ARENA PvP</span>
+            <h1>
+              Chess <span>League</span>
+            </h1>
+            <p>
+              Xadrez em uma arena 3D neon, com poderes explosivos e partidas instantâneas por link.
+            </p>
+
+            <div className="hero-actions">
+              <button type="button" onClick={create} disabled={loading} className="primary-action">
+                {loading ? "Criando..." : "Criar partida"}
+              </button>
+              <button type="button" className="secondary-action">Ver poderes</button>
+            </div>
+
+            <div className="hero-stats">
+              <div>
+                <strong>1v1</strong>
+                <span>Instantâneo</span>
+              </div>
+              <div>
+                <strong>5</strong>
+                <span>Habilidades</span>
+              </div>
+              <div>
+                <strong>Link</strong>
+                <span>Compartilhável</span>
+              </div>
+            </div>
+
+            {err && <p className="landing-error">{err}</p>}
+          </div>
+
+          <div className="hero-showcase">
+            <div className="showcase-panel">
+              <div className="showcase-topline">
+                <span className="live-dot" />
+                <span>LIVE ARENA</span>
+              </div>
+
+              <div className="showcase-board">
+                <div className="mini-board" aria-hidden="true">
+                  {Array.from({ length: 64 }, (_, index) => (
+                    <span key={index} className={((index + Math.floor(index / 8)) % 2 === 0 ? "light" : "dark")} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="showcase-meta">
+                <div>
+                  <small>JOGADOR</small>
+                  <strong>Cyan Prime</strong>
+                </div>
+                <div>
+                  <small>OPONENTE</small>
+                  <strong>Nova Pulse</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="powers-section">
+          {Object.values(POWERS).map((p) => (
+            <article key={p.name} className="power-card" data-tone={p.name.toLowerCase()}>
+              <div className="power-card-head">
+                <div className="power-card-icon">{p.icon}</div>
+                <span className="power-card-cost">{p.cost} ⚡</span>
+              </div>
+              <h3>{p.name}</h3>
+              <p>{p.desc}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="rules-panel">
+          <div className="rules-head">
+            <span className="eyebrow muted">REGRAS</span>
+            <h2>Como a partida funciona</h2>
+          </div>
+          <ul>
+            <li>Cada jogador ganha 1 de energia por turno e pode chegar até 10.</li>
+            <li>Você usa 1 poder por turno antes de mover, e ainda precisa fazer o lance.</li>
+            <li>Vence quem capturar o rei adversário, sem xeque-mate tradicional.</li>
+            <li>Peões que chegam ao fim viram Dama.</li>
+            <li>Capturar uma peça concede energia extra.</li>
+          </ul>
+        </section>
+      </div>
     </main>
   );
 }

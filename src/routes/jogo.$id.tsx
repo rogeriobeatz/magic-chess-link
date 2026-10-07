@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 const Board3D = lazy(() => import("@/components/Board3D"));
+import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
+import arenaBg from "../../img-refs/BG - Arena Cósmica de Xadrez Neon.png";
 import { supabase } from "@/integrations/supabase/client";
 import {
   applyMove, applyPower, movesFrom, powerTargets,
@@ -129,64 +131,149 @@ function GamePage() {
   else status = myTurn ? (s.powerUsed ? "Poder usado — agora mova uma peça" : "Sua vez") : "Vez do adversário";
 
   return (
-    <main className="min-h-screen px-4 py-6">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 lg:flex-row">
-        <div className="flex-1">
-          <div className="mb-3 flex items-center justify-between">
-            <Link to="/" className="font-display text-2xl font-bold">Chess <span className="text-primary">League</span></Link>
-            <span className={`rounded-full px-4 py-1 text-sm font-semibold ${myTurn ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{status}</span>
+    <main
+      className="game-shell min-h-screen px-4 py-6 text-foreground"
+      style={{
+        backgroundImage: `radial-gradient(circle at 15% 10%, rgba(41, 230, 255, 0.12), transparent 26%), radial-gradient(circle at 78% 8%, rgba(255, 47, 209, 0.12), transparent 24%), linear-gradient(180deg, rgba(7, 6, 15, 0.96) 0%, rgba(13, 15, 25, 0.98) 100%), url(${arenaBg})`,
+        backgroundSize: "cover, cover, cover, cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="mx-auto max-w-[1440px]">
+        <header className="game-header flex items-center justify-between gap-4">
+          <div className="brand-block" aria-label="Chess League">
+            <img src={logoUrl} alt="Chess League" className="brand-logo" />
           </div>
-          <EnergyBar label={me === "spec" ? "Pretas" : "Adversário"} value={s.energy[me === "spec" ? "b" : opp]} />
-          <div className="relative my-3 h-[62vh] min-h-[420px] w-full overflow-hidden rounded-2xl border border-primary/40 shadow-[var(--glow)]">
-            <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">Carregando arena...</div>}>
-              <Board3D state={s} flip={flip} highlights={highlights} selected={sel ?? tpFrom} onSquare={click} />
-            </Suspense>
-            <p className="pointer-events-none absolute bottom-2 left-3 text-xs text-muted-foreground">Arraste para girar a câmera · role para zoom</p>
-          </div>
-          <EnergyBar label={me === "spec" ? "Brancas" : "Você"} value={s.energy[me === "spec" ? "w" : meColor]} />
-        </div>
 
-        <aside className="w-full space-y-4 lg:w-80">
-          {!row.black_token && me === "w" && (
-            <div className="rounded-2xl border border-primary bg-card p-4">
-              <p className="font-display font-semibold">Convide seu adversário</p>
-              <p className="mt-1 text-xs text-muted-foreground">Envie este link. Quem abrir primeiro joga de Pretas.</p>
-              <div className="mt-3 flex gap-2">
-                <input readOnly value={shareUrl} className="min-w-0 flex-1 rounded-md border bg-background px-2 text-xs" />
-                <button onClick={() => { navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
-                  className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">{copied ? "Copiado!" : "Copiar"}</button>
-              </div>
-            </div>
-          )}
-          {me !== "spec" && (
-            <div className="rounded-2xl border bg-card p-4">
-              <p className="font-display font-semibold">Poderes</p>
-              <div className="mt-3 space-y-2">
-                {(Object.keys(POWERS) as PowerId[]).map((k) => {
-                  const pw = POWERS[k];
-                  const can = myTurn && !s.powerUsed && s.energy[meColor] >= pw.cost;
-                  return (
-                    <button key={k} disabled={!can}
-                      onClick={() => { setSel(null); setTpFrom(null); setPower(power === k ? null : k); }}
-                      className={`w-full rounded-xl border p-3 text-left transition disabled:opacity-40 ${power === k ? "border-primary bg-primary/15" : "hover:border-primary"}`}>
-                      <div className="flex justify-between font-semibold"><span>{pw.icon} {pw.name}</span><span className="text-primary">{pw.cost}⚡</span></div>
-                      <p className="mt-1 text-xs text-muted-foreground">{pw.desc}</p>
-                    </button>
-                  );
-                })}
-              </div>
-              {power && <p className="mt-2 text-xs text-primary">{power === "teleport" && tpFrom !== null ? "Escolha a casa de destino." : "Escolha o alvo no tabuleiro."}</p>}
-            </div>
-          )}
-          <div className="rounded-2xl border bg-card p-4">
-            <p className="font-display font-semibold">Histórico</p>
-            <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto text-xs text-muted-foreground">
-              {s.log.length === 0 && <li>Nenhum lance ainda.</li>}
-              {s.log.map((l, i) => <li key={i}>{l}</li>)}
-            </ul>
+          <div className="header-actions flex items-center gap-3">
+            <button type="button" className="icon-button" aria-label="Configurações">⚙</button>
+            <button type="button" className="icon-button" aria-label="Tela cheia">⤢</button>
           </div>
-          {s.winner && <Link to="/" className="block rounded-full bg-primary py-3 text-center font-semibold text-primary-foreground">Nova partida</Link>}
-        </aside>
+        </header>
+
+        <div className="game-layout">
+          <section className="board-panel">
+            <div className="status-banner">
+              <div className="status-copy">
+                <div className="status-line">
+                  <span className="status-text">{row.black_token ? (myTurn ? "Sua vez" : "Aguardando adversário") : "Aguardando adversário"}</span>
+                  <span className="status-pill">● ONLINE</span>
+                </div>
+                <p>{row.black_token ? (myTurn ? "Faça sua jogada e controle o ritmo da arena." : "Envie o link para iniciar a partida.") : "Envie o link para iniciar a partida."}</p>
+              </div>
+            </div>
+
+            <div className="arena-box">
+              <div className="opponent-bar">
+                <div className="player-pill">
+                  <div className="avatar avatar-magenta">{me === "spec" ? "◈" : "◉"}</div>
+                  <div>
+                    <span className="label">Adversário</span>
+                    <strong>{me === "spec" ? "Aguardando" : "Arena rival"}</strong>
+                  </div>
+                </div>
+                <div className="energy-inline energy-magenta">
+                  <span className="energy-label">⚡</span>
+                  <div className="energy-track">
+                    {Array.from({ length: MAX_ENERGY }, (_, i) => (
+                      <span key={i} className={i < s.energy[me === "spec" ? "b" : opp] ? "filled" : ""} />
+                    ))}
+                  </div>
+                  <strong>{s.energy[me === "spec" ? "b" : opp]}/10</strong>
+                </div>
+              </div>
+
+              <div className="board-wrap">
+                <Suspense fallback={<div className="flex h-full items-center justify-center text-muted-foreground">Carregando arena...</div>}>
+                  <Board3D state={s} flip={flip} highlights={highlights} selected={sel ?? tpFrom} onSquare={click} />
+                </Suspense>
+              </div>
+
+              <div className="player-bar">
+                <div className="player-pill self-pill">
+                  <div className="avatar avatar-cyan">{me === "spec" ? "◉" : "◌"}</div>
+                  <div>
+                    <span className="label">{me === "spec" ? "Brancas" : "Você"}</span>
+                    <strong>{me === "spec" ? "Observando" : myTurn ? "Em ação" : "Pronto"}</strong>
+                  </div>
+                </div>
+                <div className="energy-inline energy-cyan">
+                  <span className="energy-label">⚡</span>
+                  <div className="energy-track">
+                    {Array.from({ length: MAX_ENERGY }, (_, i) => (
+                      <span key={i} className={i < s.energy[me === "spec" ? "w" : meColor] ? "filled" : ""} />
+                    ))}
+                  </div>
+                  <strong>{s.energy[me === "spec" ? "w" : meColor]}/10</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside className="side-panel">
+            {!row.black_token && me === "w" && (
+              <div className="neon-card share-card">
+                <div className="card-header">
+                  <span className="card-icon">🔗</span>
+                  <h3>Convide seu adversário</h3>
+                </div>
+                <p>Envie este link para entrar na partida.</p>
+                <div className="share-box">
+                  <input readOnly value={shareUrl} className="share-input" />
+                  <button onClick={() => { navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+                    className="copy-button">{copied ? "Copiado!" : "Copiar"}</button>
+                </div>
+              </div>
+            )}
+
+            {me !== "spec" && (
+              <div className="neon-card powers-card">
+                <div className="card-header">
+                  <span className="card-icon">✦</span>
+                  <h3>Poderes</h3>
+                </div>
+                <p className="muted-text">Use estratégias para virar o jogo.</p>
+
+                <div className="power-list">
+                  {(Object.keys(POWERS) as PowerId[]).map((k) => {
+                    const pw = POWERS[k];
+                    const can = myTurn && !s.powerUsed && s.energy[meColor] >= pw.cost;
+                    return (
+                      <button key={k} data-tone={k} disabled={!can}
+                        onClick={() => { setSel(null); setTpFrom(null); setPower(power === k ? null : k); }}
+                        className={`power-item ${power === k ? "active" : ""}`}>
+                        <div className="power-left">
+                          <span className="power-icon">{pw.icon}</span>
+                          <div className="power-copy">
+                            <strong>{pw.name}</strong>
+                            <small>{pw.desc}</small>
+                          </div>
+                        </div>
+                        <span className="power-cost">{pw.cost}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {power && <p className="power-helper">{power === "teleport" && tpFrom !== null ? "Escolha a casa de destino." : "Escolha o alvo no tabuleiro."}</p>}
+              </div>
+            )}
+
+            <div className="neon-card history-card">
+              <div className="card-header collapsed">
+                <span className="card-icon">◫</span>
+                <h3>Histórico de lances</h3>
+              </div>
+              <ul className="history-list">
+                {s.log.length === 0 && <li>Nenhum lance ainda.</li>}
+                {s.log.map((l, i) => <li key={i}>{l}</li>)}
+              </ul>
+            </div>
+
+            {s.winner && <Link to="/" className="cta-link">Nova partida</Link>}
+          </aside>
+        </div>
       </div>
     </main>
   );
