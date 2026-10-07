@@ -23,6 +23,32 @@ export const Route = createFileRoute("/jogo/$id")({
 
 type Row = { id: string; white_token: string; black_token: string | null; state: GameState };
 
+const joins = new Map<string, Promise<{ row: Row; me: Color | "spec" } | null>>();
+
+function joinGame(id: string) {
+  let p = joins.get(id);
+  if (!p) {
+    p = (async () => {
+      const key = `xadrez-token-${id}`;
+      let token = localStorage.getItem(key);
+      const { data } = await supabase.from("games").select("*").eq("id", id).maybeSingle();
+      if (!data) return null;
+      const r = data as unknown as Row;
+      if (token === r.white_token) return { row: r, me: "w" as const };
+      if (token && token === r.black_token) return { row: r, me: "b" as const };
+      if (!r.black_token) {
+        token = crypto.randomUUID();
+        const { data: upd } = await supabase.from("games").update({ black_token: token })
+          .eq("id", id).is("black_token", null).select("*").maybeSingle();
+        if (upd) { localStorage.setItem(key, token); return { row: upd as unknown as Row, me: "b" as const }; }
+      }
+      return { row: r, me: "spec" as const };
+    })();
+    joins.set(id, p);
+  }
+  return p;
+}
+
 function GamePage() {
   const { id } = Route.useParams();
   const [row, setRow] = useState<Row | null>(null);
@@ -35,23 +61,11 @@ function GamePage() {
 
   useEffect(() => {
     let active = true;
-    (async () => {
-      const key = `xadrez-token-${id}`;
-      let token = localStorage.getItem(key);
-      const { data } = await supabase.from("games").select("*").eq("id", id).maybeSingle();
-      if (!data) { setNotFound(true); return; }
-      let r = data as unknown as Row;
-      if (token === r.white_token) setMe("w");
-      else if (token && token === r.black_token) setMe("b");
-      else if (!r.black_token) {
-        token = crypto.randomUUID();
-        const { data: upd } = await supabase.from("games").update({ black_token: token })
-          .eq("id", id).is("black_token", null).select("*").maybeSingle();
-        if (upd) { localStorage.setItem(key, token); r = upd as unknown as Row; setMe("b"); }
-        else setMe("spec");
-      } else setMe("spec");
-      if (active) setRow(r);
-    })();
+    joinGame(id).then((res) => {
+      if (!active) return;
+      if (!res) { setNotFound(true); return; }
+      setRow(res.row); setMe(res.me);
+    });
     const ch = supabase.channel(`game-${id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
         (p) => setRow(p.new as unknown as Row))
@@ -123,7 +137,7 @@ function GamePage() {
             <span className={`rounded-full px-4 py-1 text-sm font-semibold ${myTurn ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{status}</span>
           </div>
           <EnergyBar label={me === "spec" ? "Pretas" : "Adversário"} value={s.energy[me === "spec" ? "b" : opp]} />
-          <div className="my-3 grid aspect-square w-full max-w-[640px] grid-cols-8 overflow-hidden rounded-xl border-4 border-border shadow-[var(--glow)]">
+          <div className="my-3 grid aspect-square w-full max-w-[640px] grid-cols-8 grid-rows-8 overflow-hidden rounded-xl border-4 border-border shadow-[var(--glow)]">
             {order.map((i) => {
               const p = s.board[i];
               const dark = (Math.floor(i / 8) + (i % 8)) % 2 === 1;
