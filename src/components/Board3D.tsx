@@ -102,11 +102,11 @@ function Explosion({ at, color, size = 1 }: { at: [number, number]; color: strin
   useFrame((_, d) => {
     t.current += Math.min(d, 0.05);
     const tt = t.current;
-    const arr = geo.attributes.position!.array as Float32Array;
+    const arr = geo.attributes['position']!.array as Float32Array;
     vel.forEach((v, i) => {
       arr[i * 3] = v.x * tt; arr[i * 3 + 1] = 0.4 + v.y * tt - 4 * tt * tt; arr[i * 3 + 2] = v.z * tt;
     });
-    geo.attributes.position!.needsUpdate = true;
+    geo.attributes['position']!.needsUpdate = true;
     if (ref.current) (ref.current.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - tt / 1.2);
     if (ring.current) {
       ring.current.scale.setScalar(1 + tt * 6 * size);
@@ -270,7 +270,7 @@ export default function Board3D({
       })}
 
       {pieces.map(({ p, i }) => (
-        <group key={keyed[i]} onClick={(e) => { e.stopPropagation(); onSquare(i); }}>
+        <group key={keyed[i] ?? i} onClick={(e) => { e.stopPropagation(); onSquare(i); }}>
           <AnimatedPiece sq={i}>
             <group rotation={[0, p.c === "w" ? Math.PI : 0, 0]}>
               <PieceMesh t={p.t} c={p.c} frozen={isFrozen(p, state.move)} shielded={isShielded(p, state.move)} />
