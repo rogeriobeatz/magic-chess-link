@@ -14,7 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      games: {
+        Row: {
+          black_token: string | null
+          created_at: string
+          id: string
+          state: Json
+          updated_at: string
+          white_token: string
+        }
+        Insert: {
+          black_token?: string | null
+          created_at?: string
+          id?: string
+          state: Json
+          updated_at?: string
+          white_token: string
+        }
+        Update: {
+          black_token?: string | null
+          created_at?: string
+          id?: string
+          state?: Json
+          updated_at?: string
+          white_token?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
