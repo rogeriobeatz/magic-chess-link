@@ -53,7 +53,7 @@ export function movesFrom(s: GameState, from: number): number[] {
     const t = s.board[i];
     return !t || (t.c !== p.c && !isShielded(t, s.move));
   };
-  const ray = (dirs: number[][], slide: boolean) => {
+  const ray = (dirs: [number, number][], slide: boolean) => {
     for (const [dr, dc] of dirs) {
       let nr = r + dr, nc = c + dc;
       while (inside(nr, nc)) {
@@ -65,8 +65,8 @@ export function movesFrom(s: GameState, from: number): number[] {
       }
     }
   };
-  const diag = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
-  const orth = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const diag: [number, number][] = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const orth: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   switch (p.t) {
     case "p": {
       const d = p.c === "w" ? -1 : 1;
