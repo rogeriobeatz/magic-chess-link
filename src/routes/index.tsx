@@ -6,9 +6,9 @@ import { initialState, POWERS } from "@/lib/chess";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Xadrez 2.0 — Xadrez com poderes online" },
+      { title: "Chess League — Xadrez 3D com poderes online" },
       { name: "description", content: "Crie uma partida de xadrez com poderes e jogue online enviando um link para seu amigo." },
-      { property: "og:title", content: "Xadrez 2.0 — Xadrez com poderes online" },
+      { property: "og:title", content: "Chess League — Xadrez 3D com poderes online" },
       { property: "og:description", content: "Partidas PvP de xadrez com poderes. Só enviar o link." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -45,10 +45,10 @@ function Index() {
       <div className="mx-auto max-w-3xl text-center">
         <p className="font-display text-sm uppercase tracking-[0.4em] text-primary">Arena PvP</p>
         <h1 className="mt-4 font-display text-6xl font-bold md:text-8xl">
-          Xadrez <span className="text-primary">2.0</span>
+          Chess <span className="text-primary">League</span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-          O xadrez clássico, agora com poderes. Crie uma partida, envie o link e enfrente seu amigo em tempo real.
+          Xadrez em uma arena 3D neon, com poderes, explosões e regras malucas. Crie uma partida, envie o link e enfrente seu amigo em tempo real.
         </p>
         <button
           onClick={create}
@@ -79,6 +79,7 @@ function Index() {
           <li>Você pode usar 1 poder por turno, antes de mover — e ainda precisa mover.</li>
           <li>Não existe xeque-mate: vence quem capturar o rei adversário.</li>
           <li>Peões que chegam ao fim viram Dama.</li>
+          <li>Capturar uma peça dá +1 de energia bônus.</li>
         </ul>
       </section>
     </main>
