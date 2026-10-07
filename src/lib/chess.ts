@@ -2,7 +2,8 @@ export type Color = "w" | "b";
 export type PType = "p" | "n" | "b" | "r" | "q" | "k";
 export type Piece = { t: PType; c: Color; shield?: number; frozen?: number };
 export type Square = Piece | null;
-export type PowerId = "shield" | "freeze" | "teleport" | "bolt";
+export type PowerId = "shield" | "freeze" | "teleport" | "bolt" | "bomb";
+export type Fx = { id: number; kind: "move" | "capture" | "shield" | "freeze" | "teleport" | "bolt" | "bomb" | "promote"; squares: number[] };
 
 export type GameState = {
   board: Square[];
@@ -13,6 +14,7 @@ export type GameState = {
   winner: Color | null;
   log: string[];
   last?: [number, number];
+  fx?: Fx;
 };
 
 export const POWERS: Record<PowerId, { name: string; cost: number; desc: string; icon: string }> = {
@@ -20,6 +22,7 @@ export const POWERS: Record<PowerId, { name: string; cost: number; desc: string;
   freeze: { name: "Congelar", cost: 3, desc: "Uma peça inimiga (exceto rei) não pode se mover no próximo turno.", icon: "❄️" },
   teleport: { name: "Teleporte", cost: 4, desc: "Mova uma peça sua (exceto rei) para qualquer casa vazia.", icon: "✨" },
   bolt: { name: "Raio", cost: 6, desc: "Destrói uma peça inimiga (exceto rei e dama) sem escudo.", icon: "⚡" },
+  bomb: { name: "Bomba", cost: 9, desc: "Explode uma área 3x3 ao redor de uma casa: destrói todas as peças inimigas sem escudo (exceto o rei).", icon: "💣" },
 };
 
 export const MAX_ENERGY = 10;
@@ -115,6 +118,9 @@ export function applyMove(s0: GameState, from: number, to: number): GameState | 
   let entry = `${cname(p.c)}: ${NAMES[p.t]} ${sqName(from)}→${sqName(to)}`;
   if (captured) entry += ` captura ${NAMES[captured.t]}`;
   if (captured?.t === "k") s.winner = p.c;
+  if (captured) { s.energy[p.c] = Math.min(MAX_ENERGY, s.energy[p.c] + 1); entry += " (+1⚡)"; }
+  const promoted = p.t === "p" && moving.t === "q";
+  s.fx = { id: Date.now(), kind: captured ? "capture" : promoted ? "promote" : "move", squares: [from, to] };
   s.log.unshift(entry);
   s.last = [from, to];
   s.move += 1;
@@ -136,6 +142,7 @@ export function powerTargets(s: GameState, power: PowerId, first?: number): numb
       if (!p) res.push(i);
       return;
     }
+    if (power === "bomb") { res.push(i); return; }
     if (!p) return;
     if (power === "shield" && p.c === me) res.push(i);
     if (power === "freeze" && p.c !== me && p.t !== "k") res.push(i);
@@ -152,11 +159,23 @@ export function applyPower(s0: GameState, power: PowerId, target: number, dest?:
   if (!powerTargets(s0, power).includes(target)) return null;
   const s = clone(s0);
   const p = s.board[target]!;
+  s.fx = { id: Date.now(), kind: power, squares: [target] };
   let entry = `${cname(s.turn)} usou ${POWERS[power].name}`;
+  if (power === "bomb") {
+    const [r, c] = rc(target); let n = 0; const hit: number[] = [];
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      if (!inside(r + dr, c + dc)) continue;
+      const i = idx(r + dr, c + dc); const q = s.board[i]; hit.push(i);
+      if (q && q.c !== s.turn && q.t !== "k" && !isShielded(q, s.move)) { s.board[i] = null; n++; }
+    }
+    s.fx = { id: Date.now(), kind: "bomb", squares: hit };
+    entry += ` em ${sqName(target)} e destruiu ${n} peça(s)`;
+  }
   if (power === "shield") { p.shield = s.move + 2; entry += ` em ${NAMES[p.t]} ${sqName(target)}`; }
   if (power === "freeze") { p.frozen = s.move + 2; entry += ` em ${NAMES[p.t]} ${sqName(target)}`; }
   if (power === "bolt") { s.board[target] = null; entry += ` e destruiu ${NAMES[p.t]} ${sqName(target)}`; }
   if (power === "teleport") {
+    s.fx = { id: Date.now(), kind: "teleport", squares: [target, dest ?? target] };
     if (dest === undefined || s.board[dest]) return null;
     s.board[dest] = p; s.board[target] = null;
     entry += `: ${NAMES[p.t]} ${sqName(target)}→${sqName(dest)}`;
