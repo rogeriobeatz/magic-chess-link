@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 const Board3D = lazy(() => import("@/components/Board3D"));
 import GameAnnouncement from "@/components/GameAnnouncement";
+import { QuickChat, validReaction, type ChatReaction } from "@/components/QuickChat";
 import { ArenaBalance, MatchResult } from "@/components/ArenaBalance";
 import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
@@ -157,11 +158,34 @@ function GamePage() {
   const [resultOpen, setResultOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const chatChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [chatReaction, setChatReaction] = useState<ChatReaction | null>(null);
+  const chatTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerNameRef = useRef("Jogador");
+  const sideRef = useRef<Color | "spec" | null>(null);
+  const chatLastReceived = useRef<Record<string, number>>({});
   const submitting = useRef(false);
   const awarded = useRef(new Set<string>());
   const [playerName, setPlayerName] = useState("Jogador");
   useEffect(() => { void currentPlayer().then(p => { if (p) setPlayerName(p.display_name); }).catch(() => {}); }, []);
 
+  sideRef.current = me;
+  playerNameRef.current = playerName;
+  function showChat(message: ChatReaction) {
+    setChatReaction(message);
+    if (chatTimeout.current) clearTimeout(chatTimeout.current);
+    chatTimeout.current = setTimeout(() => setChatReaction(null), 3000);
+  }
+  async function sendChat(message: ChatReaction): Promise<boolean> {
+    const channel = chatChannel.current;
+    if (!channel || !row?.black_token || !me || me === "spec" || me !== message.side) return false;
+    try {
+      const response = await channel.send({ type: "broadcast", event: "quick-chat", payload: message });
+      if (response !== "ok") return false;
+      showChat(message);
+      return true;
+    } catch { return false; }
+  }
   useEffect(() => {
     let active = true;
     setNotFound(false);
@@ -191,6 +215,15 @@ function GamePage() {
     });
     const ch = supabase
       .channel(`game-${id}`)
+      .on("broadcast", { event: "quick-chat" }, ({ payload }) => {
+        if (!active || !validReaction(payload) || sideRef.current === "spec") return;
+        const sender = payload as ChatReaction;
+        if (sender.side === sideRef.current) return;
+        const time = Date.now();
+        if (time - (chatLastReceived.current[sender.side] ?? 0) < 2800) return;
+        chatLastReceived.current[sender.side] = time;
+        showChat(sender);
+      })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
@@ -210,8 +243,11 @@ function GamePage() {
             });
         }
       });
+    chatChannel.current = ch;
     return () => {
       active = false;
+      if (chatChannel.current === ch) chatChannel.current = null;
+      if (chatTimeout.current) clearTimeout(chatTimeout.current);
       supabase.removeChannel(ch);
     };
   }, [id, local, solo, training]);
@@ -654,6 +690,7 @@ function GamePage() {
           </nav>
         </header>
 
+        <QuickChat side={me} name={playerName} onSend={sendChat} reaction={chatReaction} enabled={!local && !!row.black_token && !over} />
         <div className="arena-workspace">
           <section className="arena-stage" aria-label="Arena de xadrez">
             <PlayerBar
