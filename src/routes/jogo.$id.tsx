@@ -8,6 +8,7 @@ import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
 import { recordMatch } from "@/lib/progress";
 import { currentPlayer, submitResult } from "@/lib/player";
+import { useArenaSound } from "@/lib/arena-audio";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
 import { Button } from "@/components/ui/button";
@@ -156,6 +157,8 @@ function GamePage() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
+  const [cinematic, setCinematic] = useState(false);
+  const seenFinals = useRef(new Set<string>());
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const chatChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -254,9 +257,21 @@ function GamePage() {
 
   const s = row?.state;
   const over = !!s && isGameOver(s);
+  useArenaSound(s, effects, me, id);
   useEffect(() => {
-    setResultOpen(over);
-  }, [over, s?.matchId]);
+    if (!over || !s || !effects || s.result !== "checkmate") {
+      setCinematic(false);
+      setResultOpen(over);
+      return;
+    }
+    const finalKey = id + ":" + (s.matchId ?? "legacy");
+    if (seenFinals.current.has(finalKey)) { setResultOpen(true); return; }
+    seenFinals.current.add(finalKey);
+    setResultOpen(false);
+    setCinematic(true);
+    const transition = setTimeout(() => { setCinematic(false); setResultOpen(true); }, 2300);
+    return () => clearTimeout(transition);
+  }, [over, s?.matchId, s?.result, id, effects]);
   useEffect(() => {
     if (!s || row?.id !== id || !over || saving || training || !me || me === "spec") return;
     try {
@@ -691,6 +706,18 @@ function GamePage() {
         </header>
 
         <QuickChat side={me} name={playerName} onSend={sendChat} reaction={chatReaction} enabled={!local && !!row.black_token && !over} />
+        {cinematic && s?.winner && (
+          <div className="arena-cinematic" role="status" aria-live="assertive" onClick={() => { setCinematic(false); setResultOpen(true); }}>
+            <div className="arena-cinematic-rays" aria-hidden="true" />
+            <div className="arena-cinematic-content">
+              <Crown aria-hidden="true" />
+              <span>FIM DE JOGO</span>
+              <strong>XEQUE-MATE</strong>
+              <p>{s.winner === me ? "VOCÊ CONQUISTOU A ARENA" : "A ARENA TEM UM VENCEDOR"}</p>
+              <small>Clique para continuar</small>
+            </div>
+          </div>
+        )}
         <div className="arena-workspace">
           <section className="arena-stage" aria-label="Arena de xadrez">
             <PlayerBar
