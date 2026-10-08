@@ -168,6 +168,7 @@ function GamePage() {
   const chatLastReceived = useRef<Record<string, number>>({});
   const submitting = useRef(false);
   const [playerName, setPlayerName] = useState("");
+  const [opponentName, setOpponentName] = useState("");
   const [nicknameDraft, setNicknameDraft] = useState("");
   useEffect(() => {
     setPlayerName(sessionStorage.getItem("chess-nickname-" + id) ?? "");
@@ -181,6 +182,17 @@ function GamePage() {
 
   sideRef.current = me;
   playerNameRef.current = playerName;
+  useEffect(() => {
+    setOpponentName("");
+  }, [id]);
+  useEffect(() => {
+    if (local || !playerName || !me || me === "spec" || !chatChannel.current) return;
+    const channel = chatChannel.current;
+    const timer = setTimeout(() => {
+      void channel.send({ type: "broadcast", event: "player-presence", payload: { side: me, name: playerName, request: true } });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [id, local, playerName, me]);
   function showChat(message: ChatReaction) {
     setChatReaction(message);
     if (chatTimeout.current) clearTimeout(chatTimeout.current);
@@ -225,6 +237,15 @@ function GamePage() {
     });
     const ch = supabase
       .channel(`game-${id}`)
+      .on("broadcast", { event: "player-presence" }, ({ payload }) => {
+        if (!active || !payload || typeof payload !== "object") return;
+        const p = payload as { side?: unknown; name?: unknown; request?: unknown };
+        if ((p.side !== "w" && p.side !== "b") || p.side === sideRef.current || typeof p.name !== "string") return;
+        setOpponentName(p.name.trim().slice(0, 24));
+        if (p.request === true && sideRef.current && sideRef.current !== "spec" && playerNameRef.current) {
+          void ch.send({ type: "broadcast", event: "player-presence", payload: { side: sideRef.current, name: playerNameRef.current, request: false } });
+        }
+      })
       .on("broadcast", { event: "quick-chat" }, ({ payload }) => {
         if (!active || !validReaction(payload) || sideRef.current === "spec") return;
         const sender = payload as ChatReaction;
@@ -733,7 +754,7 @@ function GamePage() {
           <section className="arena-stage" aria-label="Arena de xadrez">
             <PlayerBar
               opponent
-              label={solo ? "Computador" : training || me === "spec" ? "Pretas" : "Adversário"}
+              label={solo ? "Computador" : training || me === "spec" ? "Pretas" : opponentName || "Adversário"}
               detail={
                 !row.black_token
                   ? "Aguardando"
