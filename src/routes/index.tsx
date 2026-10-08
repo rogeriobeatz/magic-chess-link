@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Bot, Check, ChevronDown, Copy, Crown, Gamepad2, MessageCircle, Radio, Shield, Sparkles, Swords, Timer, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +36,6 @@ const arsenal: { id: PowerId; headline: string; note: string }[] = [
 const labels: Record<Difficulty, string> = { easy: "Fácil", medium: "Médio", hard: "Mestre" };
 
 function Index() {
-  const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [roomLink, setRoomLink] = useState("");
