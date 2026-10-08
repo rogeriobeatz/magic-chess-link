@@ -1,27 +1,43 @@
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment, Lightformer, Sparkles, Stars } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette, ChromaticAberration } from "@react-three/postprocessing";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, Environment, Lightformer, Sparkles } from "@react-three/drei";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { isFrozen, isShielded, type Color, type Fx, type GameState, type PType } from "@/lib/chess";
 
-const NEON: Record<Color, string> = { w: "#22e6ff", b: "#ff2fb4" };
+const token = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(`--arena-3d-${name}`).trim();
+const neon = (c: Color) => token(c === "w" ? "cyan" : "magenta");
 const pos = (i: number): [number, number] => [(i % 8) - 3.5, Math.floor(i / 8) - 3.5];
 
 // Lathe profiles (radius, height) per piece type
+const BASE: [number, number][] = [[0, 0], [0.36, 0], [0.38, 0.05], [0.38, 0.09], [0.33, 0.13], [0.31, 0.17], [0.32, 0.21], [0.26, 0.25]];
 const PROFILES: Record<PType, [number, number][]> = {
-  p: [[0.3, 0], [0.3, 0.08], [0.18, 0.15], [0.1, 0.35], [0.14, 0.42], [0.17, 0.52], [0.12, 0.62], [0, 0.66]],
-  n: [[0.32, 0], [0.32, 0.08], [0.2, 0.18], [0.13, 0.45], [0.2, 0.5], [0, 0.52]],
-  b: [[0.32, 0], [0.32, 0.08], [0.18, 0.18], [0.1, 0.55], [0.18, 0.62], [0.14, 0.8], [0.04, 0.9], [0, 0.94]],
-  r: [[0.34, 0], [0.34, 0.08], [0.22, 0.18], [0.18, 0.6], [0.28, 0.66], [0.28, 0.82], [0, 0.82]],
-  q: [[0.36, 0], [0.36, 0.08], [0.2, 0.2], [0.1, 0.75], [0.24, 0.85], [0.18, 1.0], [0.08, 1.05], [0, 1.08]],
-  k: [[0.37, 0], [0.37, 0.08], [0.21, 0.2], [0.11, 0.85], [0.24, 0.93], [0.16, 1.1], [0, 1.12]],
+  p: [...BASE, [0.19, 0.29], [0.13, 0.48], [0.12, 0.56], [0.21, 0.58], [0.21, 0.62], [0.1, 0.66], [0, 0.66]],
+  n: [...BASE, [0.2, 0.31], [0.18, 0.47], [0, 0.5]],
+  b: [...BASE, [0.19, 0.3], [0.11, 0.64], [0.14, 0.71], [0.23, 0.73], [0.23, 0.78], [0.12, 0.82], [0.2, 0.96], [0.14, 1.12], [0.04, 1.25], [0, 1.28]],
+  r: [...BASE, [0.21, 0.3], [0.18, 0.87], [0.28, 0.89], [0.29, 0.96], [0.27, 1.08], [0, 1.08]],
+  q: [...BASE, [0.2, 0.33], [0.11, 0.84], [0.2, 0.93], [0.26, 0.96], [0.2, 1.07], [0.22, 1.14], [0.3, 1.28], [0.22, 1.32], [0, 1.32]],
+  k: [...BASE, [0.2, 0.33], [0.11, 0.92], [0.24, 1], [0.25, 1.06], [0.16, 1.12], [0.18, 1.3], [0.12, 1.37], [0, 1.38]],
 };
+
+function HorseHead({ color, body }: { color: string; body: string }) {
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-0.23, 0.4); shape.bezierCurveTo(-0.29, 0.7, -0.22, 1.06, 0.06, 1.25);
+    shape.lineTo(0.1, 1.43); shape.lineTo(0.21, 1.29); shape.lineTo(0.3, 1.21); shape.lineTo(0.36, 0.98); shape.lineTo(0.23, 0.87); shape.lineTo(0.07, 0.94);
+    shape.bezierCurveTo(-0.01, 0.8, 0.18, 0.65, 0.22, 0.43); shape.closePath();
+    return new THREE.ExtrudeGeometry(shape, { depth: 0.22, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.045, bevelThickness: 0.035 });
+  }, []);
+  return <group rotation={[0, Math.PI / 2, 0]}>
+    <mesh geometry={geometry} position={[0, 0, -0.11]} castShadow><meshPhysicalMaterial color={body} emissive={color} emissiveIntensity={0.45} metalness={0.4} roughness={0.12} clearcoat={1} /></mesh>
+    {[-0.16, 0.16].map((z) => <mesh key={z} position={[0.19, 1.13, z]}><sphereGeometry args={[0.025, 12, 12]} /><meshBasicMaterial color={token("white")} /></mesh>)}
+  </group>;
+}
 
 function PieceMesh({ t, c, frozen, shielded }: { t: PType; c: Color; frozen: boolean; shielded: boolean }) {
   const geo = useMemo(() => new THREE.LatheGeometry(PROFILES[t].map(([x, y]) => new THREE.Vector2(x, y)), 32), [t]);
-  const color = frozen ? "#bfe9ff" : NEON[c];
-  const body = c === "w" ? "#d9f6ff" : "#1a0a1e";
+  const color = frozen ? token("ice") : neon(c);
+  const body = c === "w" ? token("body-white") : token("body-black");
   const ring = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     if (ring.current) ring.current.rotation.z = clock.elapsedTime * 2;
@@ -29,22 +45,21 @@ function PieceMesh({ t, c, frozen, shielded }: { t: PType; c: Color; frozen: boo
   return (
     <group>
       <mesh geometry={geo} castShadow>
-        <meshStandardMaterial color={body} metalness={0.8} roughness={0.2} emissive={color} emissiveIntensity={c === "w" ? 0.35 : 0.6} />
+        <meshPhysicalMaterial color={body} metalness={0.3} roughness={0.09} clearcoat={1} clearcoatRoughness={0.05} emissive={color} emissiveIntensity={0.4} />
       </mesh>
-      {t === "n" && (
-        <mesh position={[0, 0.68, 0.06]} rotation={[0.5, 0, 0]} castShadow>
-          <boxGeometry args={[0.2, 0.36, 0.42]} />
-          <meshStandardMaterial color={body} metalness={0.8} roughness={0.2} emissive={color} emissiveIntensity={0.5} />
-        </mesh>
-      )}
+      {t === "p" && <mesh position={[0, 0.79, 0]} castShadow><sphereGeometry args={[0.19, 24, 24]} /><meshPhysicalMaterial color={body} metalness={0.3} roughness={0.08} clearcoat={1} emissive={color} emissiveIntensity={0.45} /></mesh>}
+      {t === "n" && <HorseHead color={color} body={body} />}
+      {t === "r" && Array.from({ length: 6 }, (_, i) => <mesh key={i} position={[Math.cos(i * Math.PI / 3) * 0.22, 1.13, Math.sin(i * Math.PI / 3) * 0.22]} rotation={[0, -i * Math.PI / 3, 0]}><boxGeometry args={[0.14, 0.18, 0.14]} /><meshPhysicalMaterial color={body} emissive={color} emissiveIntensity={0.6} metalness={0.4} roughness={0.1} /></mesh>)}
+      {t === "q" && Array.from({ length: 7 }, (_, i) => <mesh key={i} position={[Math.cos(i * Math.PI * 2 / 7) * 0.24, 1.35, Math.sin(i * Math.PI * 2 / 7) * 0.24]}><sphereGeometry args={[0.055, 12, 12]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>)}
+      {[0.075, 0.2, t === "p" ? 0.6 : 0.96].map((height, i) => <mesh key={height} position={[0, height, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[i === 0 ? 0.37 : i === 1 ? 0.3 : t === "p" ? 0.19 : 0.22, 0.016, 8, 40]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>)}
       {t === "k" && (
-        <group position={[0, 1.25, 0]}>
+        <group position={[0, 1.52, 0]}>
           <mesh><boxGeometry args={[0.06, 0.28, 0.06]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
           <mesh position={[0, 0.04, 0]}><boxGeometry args={[0.2, 0.06, 0.06]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
         </group>
       )}
       {t === "q" && (
-        <mesh position={[0, 1.15, 0]}><sphereGeometry args={[0.07, 16, 16]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
+        <mesh position={[0, 1.4, 0]}><sphereGeometry args={[0.07, 16, 16]} /><meshBasicMaterial color={color} toneMapped={false} /></mesh>
       )}
       <mesh ref={ring} position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[0.36, 0.42, 32]} />
@@ -53,13 +68,13 @@ function PieceMesh({ t, c, frozen, shielded }: { t: PType; c: Color; frozen: boo
       {shielded && (
         <mesh position={[0, 0.5, 0]}>
           <sphereGeometry args={[0.62, 24, 24]} />
-          <meshBasicMaterial color="#7dffb0" transparent opacity={0.18} toneMapped={false} wireframe />
+          <meshBasicMaterial color=token("shield") transparent opacity={0.18} toneMapped={false} wireframe />
         </mesh>
       )}
       {frozen && (
         <mesh position={[0, 0.5, 0]}>
           <icosahedronGeometry args={[0.55, 0]} />
-          <meshStandardMaterial color="#aee6ff" transparent opacity={0.35} roughness={0} metalness={0.2} />
+          <meshStandardMaterial color=token("frost") transparent opacity={0.35} roughness={0} metalness={0.2} />
         </mesh>
       )}
     </group>
@@ -102,11 +117,12 @@ function Explosion({ at, color, size = 1 }: { at: [number, number]; color: strin
   useFrame((_, d) => {
     t.current += Math.min(d, 0.05);
     const tt = t.current;
-    const arr = geo.attributes['position']!.array as Float32Array;
+    const attribute = geo.getAttribute('position');
+    const arr = attribute.array as Float32Array;
     vel.forEach((v, i) => {
       arr[i * 3] = v.x * tt; arr[i * 3 + 1] = 0.4 + v.y * tt - 4 * tt * tt; arr[i * 3 + 2] = v.z * tt;
     });
-    geo.attributes['position']!.needsUpdate = true;
+    attribute.needsUpdate = true;
     if (ref.current) (ref.current.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - tt / 1.2);
     if (ring.current) {
       ring.current.scale.setScalar(1 + tt * 6 * size);
@@ -141,7 +157,7 @@ function Lightning({ at }: { at: [number, number] }) {
   return (
     <mesh ref={ref} position={[at[0], 5, at[1]]}>
       <cylinderGeometry args={[0.08, 0.2, 10, 8]} />
-      <meshBasicMaterial color="#fff36b" transparent toneMapped={false} />
+      <meshBasicMaterial color=token("bolt") transparent toneMapped={false} />
     </mesh>
   );
 }
@@ -150,21 +166,22 @@ function Effects({ bursts }: { bursts: Burst[] }) {
   return (
     <>
       {bursts.map((b) => {
-        const last = b.squares[b.squares.length - 1]!;
-        if (b.kind === "capture") return <Explosion key={b.id} at={pos(last)} color="#ff7a1a" size={1.2} />;
+        const last = b.squares[b.squares.length - 1];
+        if (last === undefined) return null;
+        if (b.kind === "capture") return <Explosion key={b.id} at={pos(last)} color=token("flame") size={1.2} />;
         if (b.kind === "bomb") {
           return (
             <group key={b.id}>
-              <Explosion at={pos(b.squares[4] ?? last)} color="#ff3b1a" size={2.2} />
-              {b.squares.map((s) => <Explosion key={s} at={pos(s)} color="#ffb21a" size={0.7} />)}
+              <Explosion at={pos(b.squares[4] ?? last)} color=token("blast") size={2.2} />
+              {b.squares.map((s) => <Explosion key={s} at={pos(s)} color=token("amber") size={0.7} />)}
             </group>
           );
         }
-        if (b.kind === "bolt") return <group key={b.id}><Lightning at={pos(last)} /><Explosion at={pos(last)} color="#fff36b" size={1.4} /></group>;
-        if (b.kind === "freeze") return <Explosion key={b.id} at={pos(last)} color="#9fe8ff" size={0.8} />;
-        if (b.kind === "shield") return <Explosion key={b.id} at={pos(last)} color="#7dffb0" size={0.7} />;
-        if (b.kind === "teleport") return <group key={b.id}>{b.squares.map((s) => <Explosion key={s} at={pos(s)} color="#c084ff" size={0.9} />)}</group>;
-        if (b.kind === "promote") return <Explosion key={b.id} at={pos(last)} color="#ffe14d" size={1.5} />;
+        if (b.kind === "bolt") return <group key={b.id}><Lightning at={pos(last)} /><Explosion at={pos(last)} color=token("bolt") size={1.4} /></group>;
+        if (b.kind === "freeze") return <Explosion key={b.id} at={pos(last)} color=token("ice") size={0.8} />;
+        if (b.kind === "shield") return <Explosion key={b.id} at={pos(last)} color=token("shield") size={0.7} />;
+        if (b.kind === "teleport") return <group key={b.id}>{b.squares.map((s) => <Explosion key={s} at={pos(s)} color=token("violet") size={0.9} />)}</group>;
+        if (b.kind === "promote") return <Explosion key={b.id} at={pos(last)} color=token("selection") size={1.5} />;
         return null;
       })}
     </>
@@ -185,9 +202,9 @@ function CameraShake({ trigger }: { trigger: number }) {
 }
 
 export default function Board3D({
-  state, flip, highlights, selected, onSquare,
+  state, flip, highlights, selected, onSquare, effects = true,
 }: {
-  state: GameState; flip: boolean; highlights: Set<number>; selected: number | null; onSquare: (i: number) => void;
+  state: GameState; flip: boolean; highlights: Set<number>; selected: number | null; onSquare: (i: number) => void; effects?: boolean;
 }) {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [shake, setShake] = useState(0);
@@ -210,30 +227,30 @@ export default function Board3D({
   const keyed = useStableKeys(state);
 
   return (
-    <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 9, flip ? -8 : 8], fov: 45 }}>
-      <color attach="background" args={["#05030c"]} />
-      <fog attach="fog" args={["#05030c", 14, 30]} />
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 10, 4]} intensity={1.2} castShadow shadow-mapSize={[1024, 1024]} />
-      <pointLight position={[0, 3, flip ? -6 : 6]} intensity={20} color={NEON.w} distance={14} />
-      <pointLight position={[0, 3, flip ? 6 : -6]} intensity={20} color={NEON.b} distance={14} />
+    <Canvas shadows dpr={[1, 1.5]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 9, flip ? -10 : 10], fov: 38 }}>
+      <ArenaCamera flip={flip} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[5, 10, 4]} intensity={2} castShadow shadow-mapSize={[1024, 1024]} />
+      <pointLight position={[0, 3, flip ? -6 : 6]} intensity={20} color={neon("w")} distance={14} />
+      <pointLight position={[0, 3, flip ? 6 : -6]} intensity={20} color={neon("b")} distance={14} />
       <Environment resolution={64}>
         <Lightformer intensity={2} position={[0, 5, 0]} scale={[10, 10, 1]} />
-        <Lightformer intensity={3} color={NEON.w} position={[-5, 1, 0]} rotation-y={Math.PI / 2} scale={[20, 1, 1]} />
-        <Lightformer intensity={3} color={NEON.b} position={[5, 1, 0]} rotation-y={-Math.PI / 2} scale={[20, 1, 1]} />
+        <Lightformer intensity={3} color={neon("w")} position={[-5, 1, 0]} rotation-y={Math.PI / 2} scale={[20, 1, 1]} />
+        <Lightformer intensity={3} color={neon("b")} position={[5, 1, 0]} rotation-y={-Math.PI / 2} scale={[20, 1, 1]} />
       </Environment>
-      <Stars radius={40} depth={20} count={1500} factor={3} fade speed={1} />
-      <Sparkles count={60} scale={[10, 3, 10]} position={[0, 1.5, 0]} size={2} color="#ffffff" speed={0.4} />
 
-      {/* Arena base */}
-      <mesh position={[0, -0.26, 0]} receiveShadow>
-        <boxGeometry args={[9.2, 0.5, 9.2]} />
-        <meshStandardMaterial color="#0b0816" metalness={0.9} roughness={0.3} />
-      </mesh>
-      <mesh position={[0, -0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[6.3, 6.4, 4, 1, Math.PI / 4]} />
-        <meshBasicMaterial color="#ffffff" toneMapped={false} />
-      </mesh>
+      {effects && <Sparkles count={40} scale={[10, 3, 10]} position={[0, 1.5, 0]} size={2} color=token("white") speed={0.4} />
+
+      {/* Architectural gold and neon frame, open to the arena behind it. */}
+      <mesh position={[0, -0.31, 0]} receiveShadow><boxGeometry args={[9.2, 0.55, 9.2]} /><meshStandardMaterial color={token("base")} metalness={0.85} roughness={0.2} /></mesh>
+      {[4.12, 4.32, 4.55].map((edge, j) => <group key={edge}>
+        {[-1, 1].map((side) => <group key={side}>
+          <mesh position={[side * edge, -0.05 - j * 0.07, 0]}><boxGeometry args={[j === 1 ? 0.16 : 0.07, 0.16, edge * 2]} /><meshStandardMaterial color={token(j === 1 ? "gold" : "cyan")} emissive={token(j === 1 ? "gold" : "cyan")} emissiveIntensity={j === 1 ? 0.25 : 1.2} metalness={0.85} roughness={0.18} /></mesh>
+          <mesh position={[0, -0.05 - j * 0.07, side * edge]}><boxGeometry args={[edge * 2, 0.16, j === 1 ? 0.16 : 0.07]} /><meshStandardMaterial color={token(j === 1 ? "gold" : side === 1 ? "cyan" : "magenta")} emissive={token(j === 1 ? "gold" : side === 1 ? "cyan" : "magenta")} emissiveIntensity={j === 1 ? 0.25 : 1.2} metalness={0.85} roughness={0.18} /></mesh>
+        </group>)}
+      </group>)}
+      {[-1, 1].map((x) => [-1, 1].map((z) => <mesh key={`${x}-${z}`} position={[x * 4.4, 0.02, z * 4.4]} rotation={[0, Math.PI / 4, 0]}><boxGeometry args={[0.37, 0.22, 0.37]} /><meshStandardMaterial color={token("gold")} emissive={token("gold")} emissiveIntensity={0.45} metalness={1} roughness={0.18} /></mesh>))}
+      <mesh position={[0, -0.22, 4.63]} rotation={[0, 0, Math.PI / 4]}><boxGeometry args={[0.48, 0.48, 0.18]} /><meshStandardMaterial color={token("gold")} emissive={token("gold")} emissiveIntensity={0.5} metalness={0.8} /></mesh>
 
       {Array.from({ length: 64 }, (_, i) => {
         const [x, z] = pos(i);
@@ -252,17 +269,17 @@ export default function Board3D({
             >
               <boxGeometry args={[0.98, 0.1, 0.98]} />
               <meshStandardMaterial
-                color={dark ? "#151030" : "#3a3f66"}
-                metalness={0.6}
-                roughness={0.35}
-                emissive={sel ? "#ffe14d" : isLast ? "#ffb21a" : "#000000"}
+                color={dark ? token("dark") : token("light")}
+                metalness={0.55}
+                roughness={0.16}
+                emissive={sel ? token("selection") : isLast ? token("amber") : token("black")}
                 emissiveIntensity={sel ? 0.8 : isLast ? 0.25 : 0}
               />
             </mesh>
             {hl && (
               <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 {state.board[i] ? <ringGeometry args={[0.38, 0.47, 32]} /> : <circleGeometry args={[0.14, 24]} />}
-                <meshBasicMaterial color={state.board[i] ? "#ff3b3b" : "#ffe14d"} toneMapped={false} />
+                <meshBasicMaterial color={state.board[i] ? token("target") : token("selection")} toneMapped={false} />
               </mesh>
             )}
           </group>
@@ -279,16 +296,25 @@ export default function Board3D({
         </group>
       ))}
 
-      <Effects bursts={bursts} />
-      <CameraShake trigger={shake} />
-      <OrbitControls enablePan={false} minDistance={7} maxDistance={16} maxPolarAngle={1.25} target={[0, 0, 0]} />
+      {effects && <Effects bursts={bursts} />}
+      {effects && <CameraShake trigger={shake} />}
+      <OrbitControls enablePan={false} enableZoom={false} minPolarAngle={0.5} maxPolarAngle={1.1} minAzimuthAngle={-0.35 + (flip ? Math.PI : 0)} maxAzimuthAngle={0.35 + (flip ? Math.PI : 0)} target={[0, 0, 0]} />
       <EffectComposer>
-        <Bloom intensity={1.3} luminanceThreshold={0.25} mipmapBlur />
-        <ChromaticAberration offset={new THREE.Vector2(0.0008, 0.0008)} />
-        <Vignette darkness={0.6} />
+        <Bloom intensity={effects ? 0.8 : 0.1} luminanceThreshold={0.65} mipmapBlur />
       </EffectComposer>
     </Canvas>
   );
+}
+
+function ArenaCamera({ flip }: { flip: boolean }) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    const distance = Math.max(11.8, 14.4 / (size.width / size.height));
+    camera.position.set(0, distance * 0.66, (flip ? -1 : 1) * distance * 0.75);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height, flip]);
+  return null;
 }
 
 // Assign each piece a persistent key so it animates when it moves.
@@ -303,13 +329,14 @@ function useStableKeys(state: GameState) {
     // keep pieces that stayed
     state.board.forEach((p, i) => {
       const q = prev.board[i];
-      if (p && q && q.c === p.c && (q.t === p.t) && prev.keys[i]) { keys[i] = prev.keys[i]!; used.add(keys[i]!); }
+      const key = prev.keys[i];
+      if (p && q && q.c === p.c && q.t === p.t && key) { keys[i] = key; used.add(key); }
     });
     // moved pieces: match vanished ones of same color
     state.board.forEach((p, i) => {
       if (!p || keys[i]) return;
-      const from = prev.board.findIndex((q, j) => q && q.c === p.c && (q.t === p.t || q.t === "p") && prev.keys[j] && !used.has(prev.keys[j]!) && !state.board[j]);
-      const k = from >= 0 ? prev.keys[from]! : `n${i}-${Date.now()}`;
+      const from = prev.board.findIndex((q, j) => q && q.c === p.c && (q.t === p.t || q.t === "p") && prev.keys[j] && !used.has(prev.keys[j] ?? "") && !state.board[j]);
+      const k = (from >= 0 ? prev.keys[from] : null) ?? `n${i}-${Date.now()}`;
       keys[i] = k; used.add(k);
     });
     ref.current = { keys, board: state.board };
