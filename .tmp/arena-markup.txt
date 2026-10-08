@@ -1,0 +1,99 @@
+  const event = ARENA_EVENTS[s.roulette?.event ?? "stable"];
+  const modeLabel = solo && difficulty ? `Solo · ${DIFFICULTIES[difficulty].name}` : training ? "Treino livre" : me === "spec" ? "Espectador" : "Duelo online";
+  const actionHint = power === "bomb" && bombCenter !== null
+    ? `Marque até duas peças na área · ${marked.length}/2 selecionadas`
+    : power === "teleport" && tpFrom !== null
+      ? "Escolha uma casa vazia até 3 casas de distância"
+      : power ? `${POWERS[power].name}: escolha um alvo destacado`
+      : over ? "Partida encerrada" : !row.black_token ? "Convide alguém pelo link para começar" : myTurn ? "Selecione uma peça ou ative um poder" : "Acompanhe a resposta do adversário";
+  const rematchLabel = training ? "Reiniciar simulação" : local ? "Revanche · trocar cores" : s.rematch?.accepted ? "Abrir revanche" : s.rematch ? s.rematch.requestedBy === me ? "Revanche enviada · aguardando" : "Aceitar revanche · trocar cores" : "Convidar para revanche";
+
+  return (
+    <main className="game-shell arena-ui">
+      <div className="arena-screen">
+        <header className="arena-topbar">
+          <div className="arena-identity">
+            <Link to="/" className="arena-brand" aria-label="Chess League — início"><img src={logoUrl} alt="Chess League" /></Link>
+            <button className="arena-mode" onClick={() => setSettingsOpen(true)} aria-label="Configurar partida">{solo ? <Bot /> : <Swords />}<span>{modeLabel}</span></button>
+          </div>
+          <div className="arena-turn" data-active={myTurn} data-check={check} role="status"><span className="arena-turn-dot" /><strong>{!row.black_token ? "Aguardando rival" : status}</strong></div>
+          <nav className="arena-tools" aria-label="Controles da arena">
+            {!local && me !== "spec" && <Button variant="arena" size="icon" className="arena-tool" title="Convidar adversário" aria-label="Convidar adversário" onClick={() => setShareOpen(true)}><Link2 /></Button>}
+            <Button variant="arena" size="icon" className="arena-tool" title="Histórico de lances" aria-label="Histórico de lances" onClick={() => setHistoryOpen(true)}><Clock3 /></Button>
+            <Button variant="arena" size="icon" className="arena-tool" title="Regras e chances" aria-label="Regras e chances" onClick={() => setRulesOpen(true)}><CircleHelp /></Button>
+            <Button variant="arena" size="icon" className="arena-tool" title="Configurações" aria-label="Configurações" onClick={() => setSettingsOpen(true)}><Settings /></Button>
+            <Button variant="arena" size="icon" className="arena-tool arena-fullscreen" title="Tela cheia" aria-label="Tela cheia" onClick={async () => {
+              if (document.fullscreenElement) { await document.exitFullscreen(); setFullscreen(false); }
+              else { await document.documentElement.requestFullscreen(); setFullscreen(true); }
+            }}>{fullscreen ? <Minimize /> : <Maximize />}</Button>
+          </nav>
+        </header>
+
+        <div className="arena-workspace">
+          <section className="arena-stage" aria-label="Arena de xadrez">
+            <PlayerBar opponent label={solo ? "Computador" : training || me === "spec" ? "Pretas" : "Adversário"} detail={!row.black_token ? "Aguardando" : solo && computer.thinking ? "Pensando…" : opp === "w" ? "Brancas" : "Pretas"} energy={s.energy[opp]} material={s.material?.[opp] ?? 0} clock={s.clock?.limitMs ? timeLabel(clockRemaining(s, opp, now)) : "Livre"} active={s.turn === opp && !over && !!row.black_token} urgent={!!s.clock?.limitMs && clockRemaining(s, opp, now) <= 30000} />
+            <div className="arena-canvas">
+              <Suspense fallback={<div className="arena-loading">Carregando arena…</div>}>
+                <Board3D state={s} flip={flip} highlights={highlights} selected={sel ?? tpFrom} onSquare={click} effects={effects} bombPreview={bombCenter === null ? null : { center: bombCenter, targets: marked }} />
+              </Suspense>
+              <GameAnnouncement state={s} viewer={training ? "spec" : me} active={!!row.black_token} effects={effects} />
+              {!!s.bombs?.length && <div className="arena-bomb-alert" role="alert"><strong>BOMBA ARMADA!</strong><span>Área {s.bombs.map(bomb => sqName(bomb.center)).join(", ")} · saia da área ou use escudo</span></div>}
+              {power === "bomb" && bombCenter !== null && <div className="arena-bomb-confirm"><span>Alvos: <strong>{marked.length}/2</strong></span><Button variant="arena" className="arena-confirm" disabled={!marked.length || !myTurn} onClick={() => {
+                const next = applyPower(s, "bomb", bombCenter, undefined, { ...actionContext(), bombTargets: marked });
+                if (next) void push(next);
+              }}>Armar bomba · {marked.length} alvo(s)</Button><Button variant="arena" className="arena-cancel" onClick={() => { setPower(null); setBombCenter(null); setMarked([]); }}>Cancelar</Button></div>}
+              {over && !resultOpen && <Button variant="arena" className="arena-result-reopen" onClick={() => setResultOpen(true)}>Ver resultado e revanche</Button>}
+            </div>
+            <PlayerBar label={training || me === "spec" ? "Brancas" : "Você"} detail={meColor === "w" ? "Brancas" : "Pretas"} energy={s.energy[meColor]} material={s.material?.[meColor] ?? 0} clock={s.clock?.limitMs ? timeLabel(clockRemaining(s, meColor, now)) : "Livre"} active={s.turn === meColor && !over && !!row.black_token} urgent={!!s.clock?.limitMs && clockRemaining(s, meColor, now) <= 30000} />
+          </section>
+
+          <aside className="arena-console" aria-label="Poderes e condições da partida">
+            <section className="arena-power-rack" aria-label="Poderes">
+              <div className="arena-rack-heading"><div><span className="arena-eyebrow">ESCOLHA SUA JOGADA</span><h2><Zap /> Poderes</h2></div><span className="arena-energy-total"><Zap />{s.energy[powerColor]}<small>/{MAX_ENERGY}</small></span></div>
+              <p className="arena-rack-rule">Um poder encerra sua vez.</p>
+              <div className="arena-power-list">
+                {(Object.keys(POWERS) as PowerId[]).map((k, index) => {
+                  const pw = POWERS[k], cost = powerCost(s, k), cooldown = powerCooldown(s, k, powerColor);
+                  const can = me !== "spec" && myTurn && !s.powerUsed && !cooldown && s.energy[powerColor] >= cost && powerTargets(s, k).length > 0;
+                  const reason = over ? "Partida encerrada" : !myTurn ? "Aguarde sua vez" : cooldown ? `Recarga: ${cooldown} rodada(s)` : s.energy[powerColor] < cost ? `Requer ${cost} de energia` : "Nenhum alvo legal disponível";
+                  return <Button key={k} variant="arena" className={`arena-power-btn h-auto whitespace-normal ${power === k ? "is-selected" : ""}`} data-tone={k} disabled={!can} aria-pressed={power === k} title={`${pw.desc}${!can ? " · " + reason : ""}`} onClick={() => { setSel(null); setTpFrom(null); setBombCenter(null); setMarked([]); setPower(power === k ? null : k); }}>
+                    <span className="arena-power-art" style={{ "--power-index": index } as CSSProperties} aria-hidden="true"><img src={powerIcons} alt="" /></span>
+                    <span className="arena-power-copy"><strong>{pw.name}</strong><small>{POWER_HINTS[k]}</small></span>
+                    <span className="arena-power-price" data-cooldown={!!cooldown}>{cooldown ? <Clock3 /> : <Zap />}{cooldown ? `${cooldown}r` : cost}</span>
+                  </Button>;
+                })}
+              </div>
+              <div className="arena-action-hint" data-selected={!!power} role="status"><span>{actionHint}</span>{power && <button onClick={() => { setPower(null); setTpFrom(null); setBombCenter(null); setMarked([]); }}>Cancelar</button>}</div>
+            </section>
+
+            <button className="arena-event-compact" onClick={() => setRulesOpen(true)} aria-label="Ver evento e chances da roleta" data-event={s.roulette?.enabled ? s.roulette.event : "off"}>
+              <span className="arena-event-symbol"><Sparkles /></span><span className="arena-event-copy"><small>{s.roulette?.enabled ? "ROLETA DA ARENA" : "CUSTOS FIXOS"} · R{Math.floor(s.move / 2) + 1}</small><strong>{s.roulette?.enabled ? event.name : "Arena clássica"}</strong><span>{s.roulette?.enabled ? event.desc : "Poderes com preços fixos"}</span></span><span className="arena-event-next">{s.roulette?.enabled ? <><strong>{Math.ceil((6 - s.move % 6) / 2)}r</strong><small>novo giro</small></> : <CircleHelp />}</span>
+            </button>
+            <div className="arena-recent"><span className="arena-eyebrow">ÚLTIMO LANCE</span><p>{s.lastDecision ?? "A arena está pronta. Faça sua primeira jogada."}</p><button onClick={() => setHistoryOpen(true)}>Ver histórico <Clock3 /></button></div>
+            {saveError && <p className="arena-save-error" role="alert">{saveError}</p>}
+            {computer.error && <div className="arena-save-error" role="alert">{computer.error}<button onClick={computer.retry}>Tentar novamente</button></div>}
+          </aside>
+        </div>
+      </div>
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}><DialogContent className="arena-ui arena-dialog"><DialogTitle>Partida e configurações</DialogTitle><DialogDescription>{modeLabel} · {training ? "Controle os dois lados" : `Você joga com as ${meColor === "w" ? "brancas" : "pretas"}`}</DialogDescription>
+        {solo && difficulty && <div className="arena-setting-group"><label htmlFor="game-difficulty">Dificuldade</label><select id="game-difficulty" value={difficulty} onChange={(event) => { const level = event.target.value; if (Object.hasOwn(DIFFICULTIES, level)) { setSettingsOpen(false); void navigate({ to: "/jogo/$id", params: { id: soloGameId(level as Difficulty, s.roulette?.enabled ?? false) } }); } }}>{(Object.keys(DIFFICULTIES) as Difficulty[]).map(level => <option key={level} value={level}>{DIFFICULTIES[level].name}</option>)}</select><p>{DIFFICULTIES[difficulty].description} Alterar o nível inicia uma nova partida.</p></div>}
+        <div className="arena-setting-switch"><label htmlFor="arena-effects">Efeitos especiais</label><Switch id="arena-effects" checked={effects} onCheckedChange={setEffects} /></div>
+        {local && <Button variant="arena" className="arena-confirm" disabled={saving} onClick={() => { setMe("w"); setRow({ ...row, state: newGameState({ training, roulette: s.roulette?.enabled ?? false, start: solo }) }); setSaveError(""); setSettingsOpen(false); }}>{training ? "Reiniciar simulação" : "Nova partida solo"}</Button>}
+        {!local && me !== "spec" && <Button variant="arena" className="arena-confirm" onClick={() => { setSettingsOpen(false); setShareOpen(true); }}>Convidar adversário</Button>}
+        <Link to="/" className="arena-home-link">Voltar ao início</Link>
+      </DialogContent></Dialog>
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}><DialogContent className="arena-ui arena-dialog"><DialogTitle>Histórico de lances</DialogTitle><DialogDescription>Rodada {Math.floor(s.move / 2) + 1} · {s.move} ações</DialogDescription><ol className="arena-history-list">{s.log.length ? s.log.map((entry, index) => <li key={index}>{entry}</li>) : <li>Nenhum lance ainda.</li>}</ol></DialogContent></Dialog>
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}><DialogContent className="arena-ui arena-dialog"><DialogTitle>Regras e chances da arena</DialogTitle><DialogDescription>Um movimento ou um poder por turno. Cada escolha conta.</DialogDescription><ArenaBalance state={s} effects={effects} /><div className="arena-rule-list">{(Object.keys(POWERS) as PowerId[]).map(key => <p key={key}><strong>{POWERS[key].name} · {powerCost(s, key)} energia</strong>{POWERS[key].desc}</p>)}<p>Vitória por xeque-mate ou tempo. Capturas contam material, não energia. Cada poder recarrega em 3 rodadas.</p></div></DialogContent></Dialog>
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}><DialogContent className="arena-ui arena-dialog"><DialogTitle>Convide seu adversário</DialogTitle><DialogDescription>Envie este link para entrar na partida.</DialogDescription><div className="arena-share-controls"><input aria-label="Link da partida" readOnly value={shareUrl} /><Button variant="arena" className="arena-confirm" onClick={async () => { try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { setCopied(false); } }}>{copied ? "Copiado!" : "Copiar"}</Button></div><Link to="/jogo/$id" params={{ id: "treino" }} className="arena-home-link">Experimentar o treino livre</Link></DialogContent></Dialog>
+      <Dialog open={resultOpen && over} onOpenChange={setResultOpen}><DialogContent className="arena-ui arena-dialog arena-result-dialog"><DialogTitle className="sr-only">Resultado da partida</DialogTitle><DialogDescription className="sr-only">Resumo, progresso e revanche</DialogDescription>{over && <MatchResult state={s} gameId={id} viewer={me} difficulty={difficulty} training={training} confirmed={!saving} rematch={() => { setResultOpen(false); void rematch(); }} rematchDisabled={saving || rematching || (!local && !s.rematch?.accepted && s.rematch?.requestedBy === me)} rematchLabel={rematchLabel} />}</DialogContent></Dialog>
+    </main>
+  );
+}
+
+function PlayerBar({ opponent = false, label, detail, energy, material, clock, active, urgent }: { opponent?: boolean; label: string; detail: string; energy: number; material: number; clock: string; active: boolean; urgent: boolean }) {
+  return <div className="arena-hud" data-opponent={opponent} data-active={active}>
+    <div className="arena-player"><span className="arena-player-avatar" aria-hidden="true">♞</span><strong>{label}</strong><span className="arena-player-color">{detail}</span></div>
+    <div className="arena-player-stats"><span className="arena-material" title="Peão 1 · cavalo/bispo 3 · torre 5 · dama 9"><Crown /><strong>{material}</strong><small>material</small></span><span className="arena-hud-energy" aria-label={`${energy} de ${MAX_ENERGY} de energia`}><Zap /><span className="arena-energy-ticks">{Array.from({ length: MAX_ENERGY }, (_, index) => <i key={index} data-filled={index < energy} />)}</span><strong>{energy}<small>/{MAX_ENERGY}</small></strong></span><strong className="arena-clock" data-urgent={urgent} aria-label={`Tempo de ${label}: ${clock}`}>{clock}</strong></div>
+  </div>;
+}

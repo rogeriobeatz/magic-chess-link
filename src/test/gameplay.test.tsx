@@ -178,6 +178,21 @@ const square = (value: number) =>
   fireEvent.click(screen.getByRole("button", { name: `Casa ${value}` }));
 
 describe("Gameplay integration", () => {
+  it("keeps powers on the main screen and changes difficulty through settings", async () => {
+    harness.id = "solo-medium-classico";
+    render(<GamePage />);
+    await screen.findByTestId("board");
+    expect(document.querySelectorAll(".arena-power-btn")).toHaveLength(5);
+    await waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Configurações" }));
+    const select = await screen.findByRole("combobox");
+    fireEvent.change(select, { target: { value: "hard" } });
+    expect(harness.navigate).toHaveBeenCalledWith({
+      to: "/jogo/$id",
+      params: { id: "solo-hard-classico" },
+    });
+    await waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
+  });
   it("an older realtime snapshot cannot rewind a saved move", async () => {
     const original = fixture();
     render(<GamePage />);

@@ -1,0 +1,1335 @@
+/* Gameplay occupies the viewport. Supporting detail lives in dialogs. */
+@layer components {
+  .arena-ui {
+    --arena-cyan: oklch(0.82 0.15 207);
+    --arena-magenta: oklch(0.68 0.29 337);
+    --arena-gold: oklch(0.82 0.14 78);
+    --arena-fire: oklch(0.68 0.22 33);
+    --arena-violet: oklch(0.64 0.27 304);
+    --arena-surface: oklch(0.115 0.024 265 / 0.95);
+    --arena-ink: oklch(0.14 0.03 265);
+    --arena-text: oklch(0.97 0.008 260);
+    --arena-muted: oklch(0.72 0.025 270);
+    --arena-edge: oklch(0.4 0.04 270 / 0.65);
+    color: var(--arena-text);
+  }
+  .game-shell.arena-ui {
+    height: 100dvh;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    background-position: center;
+    isolation: isolate;
+  }
+  .game-shell.arena-ui::before {
+    z-index: -1;
+    background: linear-gradient(
+      180deg,
+      oklch(0.08 0.02 265 / 0.6),
+      oklch(0.08 0.02 265 / 0.22) 45%,
+      oklch(0.08 0.02 265 / 0.7)
+    );
+  }
+  .arena-screen {
+    height: 100%;
+    display: grid;
+    grid-template-rows: 62px minmax(0, 1fr);
+    padding: 0 18px 14px;
+    gap: 8px;
+  }
+  .arena-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--arena-edge);
+  }
+  .arena-identity {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  .arena-brand {
+    display: block;
+    width: 190px;
+    flex-shrink: 0;
+  }
+  .arena-brand img {
+    width: 100%;
+    height: 58px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 6px color-mix(in oklab, var(--arena-gold) 20%, transparent));
+  }
+  .arena-mode {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--arena-muted);
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .arena-mode svg {
+    width: 14px;
+    height: 14px;
+    color: var(--arena-cyan);
+  }
+  .arena-turn {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 16px;
+    border: 1px solid var(--arena-edge);
+    border-radius: 30px;
+    background: var(--arena-surface);
+    max-width: 360px;
+  }
+  .arena-turn strong {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .arena-turn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--arena-muted);
+    flex-shrink: 0;
+  }
+  .arena-turn[data-active="true"] .arena-turn-dot {
+    background: var(--arena-cyan);
+    box-shadow: 0 0 10px var(--arena-cyan);
+  }
+  .arena-turn[data-check="true"] {
+    border-color: var(--arena-fire);
+    color: var(--arena-fire);
+  }
+  .arena-turn[data-check="true"] .arena-turn-dot {
+    background: var(--arena-fire);
+  }
+  .arena-tools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .arena-tool {
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    padding: 8px;
+    border: 1px solid var(--arena-edge);
+    border-radius: 9px;
+    color: var(--arena-muted);
+    background: var(--arena-surface);
+  }
+  .arena-tool:hover {
+    color: var(--arena-text);
+    border-color: var(--arena-cyan);
+  }
+  .arena-tool svg {
+    width: 16px;
+    height: 16px;
+  }
+  .arena-workspace {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(256px, 20vw, 320px);
+    gap: 18px;
+  }
+  .arena-stage {
+    display: grid;
+    grid-template-rows: 42px minmax(0, 1fr) 42px;
+    min-height: 0;
+    min-width: 0;
+    position: relative;
+  }
+  .arena-canvas {
+    min-height: 0;
+    min-width: 0;
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  .arena-canvas canvas {
+    width: 100% !important;
+    height: 100% !important;
+    touch-action: none;
+  }
+  .arena-loading {
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--arena-muted);
+    font-size: 13px;
+  }
+  .arena-hud {
+    --hud-tone: var(--arena-cyan);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 14px;
+    margin: 0 auto;
+    width: min(100%, 1100px);
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--hud-tone) 9%, var(--arena-surface)),
+      var(--arena-surface) 45%
+    );
+    border: 1px solid var(--arena-edge);
+    border-left: 2px solid var(--hud-tone);
+    border-radius: 10px;
+    min-width: 0;
+    z-index: 2;
+  }
+  .arena-hud[data-opponent="true"] {
+    --hud-tone: var(--arena-magenta);
+  }
+  .arena-hud[data-active="true"] {
+    border-color: color-mix(in oklab, var(--hud-tone) 45%, var(--arena-edge));
+  }
+  .arena-player {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+  .arena-player-avatar {
+    font-size: 24px;
+    line-height: 1;
+    color: var(--hud-tone);
+  }
+  .arena-player > strong {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .arena-player-color {
+    color: var(--arena-muted);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .arena-player-stats {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .arena-material {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--arena-gold);
+  }
+  .arena-material svg {
+    width: 13px;
+    height: 13px;
+  }
+  .arena-material small {
+    font-size: 9px;
+    color: var(--arena-muted);
+  }
+  .arena-hud-energy {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--hud-tone);
+  }
+  .arena-hud-energy > svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .arena-hud-energy > strong {
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  .arena-hud-energy small {
+    color: var(--arena-muted);
+    font-size: 9px;
+  }
+  .arena-energy-ticks {
+    display: flex;
+    gap: 5px;
+    width: 240px;
+    flex-shrink: 0;
+  }
+  .arena-energy-ticks i {
+    flex: 1;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in oklab, var(--hud-tone) 35%, var(--arena-ink));
+    background: color-mix(in oklab, var(--hud-tone) 12%, var(--arena-ink));
+  }
+  .arena-energy-ticks i[data-filled="true"] {
+    background: var(--hud-tone);
+    border-color: var(--hud-tone);
+    box-shadow: 0 0 8px color-mix(in oklab, var(--hud-tone) 50%, transparent);
+  }
+  .arena-clock {
+    font-size: 21px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    min-width: 57px;
+    text-align: right;
+    color: var(--arena-muted);
+  }
+  .arena-hud[data-active="true"] .arena-clock {
+    color: var(--hud-tone);
+  }
+  .arena-clock[data-urgent="true"] {
+    color: var(--arena-fire);
+  }
+  .arena-console {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--arena-edge);
+    border-top-color: color-mix(in oklab, var(--arena-gold) 65%, var(--arena-edge));
+    border-radius: 16px;
+    background: var(--arena-surface);
+    box-shadow:
+      0 12px 36px oklch(0 0 0 / 0.3),
+      inset 0 1px 0 oklch(1 0 0 / 0.05);
+  }
+  .arena-power-rack {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+  .arena-rack-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .arena-eyebrow {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--arena-muted);
+    display: block;
+  }
+  .arena-rack-heading h2 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 20px;
+    font-weight: 800;
+    margin-top: 4px;
+  }
+  .arena-rack-heading h2 svg {
+    width: 19px;
+    height: 19px;
+    color: var(--arena-gold);
+  }
+  .arena-energy-total {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 25px;
+    font-weight: 800;
+    color: var(--arena-gold);
+    font-variant-numeric: tabular-nums;
+  }
+  .arena-energy-total > svg {
+    width: 16px;
+    height: 16px;
+  }
+  .arena-energy-total small {
+    font-size: 11px;
+    color: var(--arena-muted);
+    font-weight: 500;
+    align-self: flex-end;
+    padding-bottom: 5px;
+  }
+  .arena-rack-rule {
+    font-size: 10px;
+    color: var(--arena-muted);
+    margin: 8px 0 14px;
+  }
+  .arena-power-list {
+    display: grid;
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    max-height: 470px;
+  }
+  .arena-power-btn {
+    cursor: pointer;
+    --power-tone: var(--arena-cyan);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    min-height: 45px;
+    padding: 7px 8px;
+    gap: 9px;
+    border-radius: 11px;
+    border: 1px solid var(--arena-edge);
+    background: linear-gradient(
+      110deg,
+      color-mix(in oklab, var(--power-tone) 7%, var(--arena-ink)),
+      var(--arena-ink) 65%
+    );
+    text-align: left;
+    color: var(--arena-text);
+    transition:
+      border-color 160ms,
+      background 160ms,
+      box-shadow 160ms;
+  }
+  .arena-power-btn[data-tone="freeze"] {
+    --power-tone: oklch(0.87 0.08 220);
+  }
+  .arena-power-btn[data-tone="teleport"] {
+    --power-tone: var(--arena-violet);
+  }
+  .arena-power-btn[data-tone="bolt"] {
+    --power-tone: var(--arena-gold);
+  }
+  .arena-power-btn[data-tone="bomb"] {
+    --power-tone: var(--arena-fire);
+  }
+  .arena-power-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  .arena-power-btn:not(:disabled):hover,
+  .arena-power-btn.is-selected {
+    border-color: var(--power-tone);
+    background: color-mix(in oklab, var(--power-tone) 12%, var(--arena-ink));
+    box-shadow: inset 0 0 12px color-mix(in oklab, var(--power-tone) 8%, transparent);
+  }
+  .arena-power-btn.is-selected {
+    box-shadow: 0 0 12px color-mix(in oklab, var(--power-tone) 16%, transparent);
+  }
+  .arena-power-art {
+    position: relative;
+    display: block;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .arena-power-art img {
+    position: absolute;
+    width: 213px;
+    height: 71px;
+    max-width: none;
+    top: -15.5px;
+    left: calc(-1.3px - var(--power-index) * 42.6px);
+  }
+  .arena-power-copy {
+    display: grid;
+    align-content: center;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+  }
+  .arena-power-copy strong {
+    font-size: 13px;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+  .arena-power-copy small {
+    font-size: 10px;
+    line-height: 1.25;
+    color: var(--arena-muted);
+    font-weight: 400;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .arena-power-price {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--arena-gold);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  .arena-power-price svg {
+    width: 12px;
+    height: 12px;
+  }
+  .arena-power-price[data-cooldown="true"] {
+    color: var(--arena-muted);
+    font-size: 11px;
+  }
+  .arena-action-hint {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    gap: 8px;
+    padding-top: 10px;
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--arena-muted);
+  }
+  .arena-action-hint[data-selected="true"] {
+    color: var(--arena-cyan);
+  }
+  .arena-action-hint button {
+    color: var(--arena-text);
+    font-size: 10px;
+    text-decoration: underline;
+    flex-shrink: 0;
+  }
+  .arena-event-compact {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px solid var(--arena-edge);
+    border-bottom: 1px solid var(--arena-edge);
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .arena-event-symbol {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    border: 1px solid color-mix(in oklab, var(--arena-gold) 28%, transparent);
+    background: color-mix(in oklab, var(--arena-gold) 6%, transparent);
+    flex-shrink: 0;
+  }
+  .arena-event-symbol svg {
+    width: 17px;
+    height: 17px;
+    color: var(--arena-gold);
+  }
+  .arena-event-copy {
+    display: grid;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+  .arena-event-copy small {
+    color: var(--arena-muted);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+  }
+  .arena-event-copy strong {
+    color: var(--arena-gold);
+    font-size: 15px;
+  }
+  .arena-event-copy > span {
+    color: var(--arena-muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  .arena-event-next {
+    display: grid;
+    gap: 3px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .arena-event-next strong {
+    color: var(--arena-gold);
+    font-size: 16px;
+  }
+  .arena-event-next small {
+    color: var(--arena-muted);
+    font-size: 8px;
+  }
+  .arena-event-next svg {
+    width: 15px;
+    height: 15px;
+    color: var(--arena-muted);
+  }
+  .arena-recent {
+    margin-top: auto;
+    flex-shrink: 0;
+  }
+  .arena-recent p {
+    font-size: 11px;
+    line-height: 1.5;
+    margin: 7px 0;
+    min-height: 32px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    color: var(--arena-muted);
+  }
+  .arena-recent button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--arena-cyan);
+  }
+  .arena-recent button svg {
+    width: 12px;
+    height: 12px;
+  }
+  .arena-bomb-alert {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 95%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-fire);
+    border-radius: 9px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .arena-bomb-alert strong {
+    color: var(--arena-fire);
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .arena-bomb-alert span {
+    color: var(--arena-muted);
+    font-size: 10px;
+  }
+  .arena-bomb-confirm {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    max-width: 96%;
+    border: 1px solid var(--arena-fire);
+    border-radius: 11px;
+    background: var(--arena-surface);
+    z-index: 4;
+  }
+  .arena-bomb-confirm > span {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .arena-confirm {
+    border-radius: 8px;
+    color: var(--arena-ink);
+    background: var(--arena-cyan);
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .arena-confirm:disabled {
+    opacity: 0.4;
+  }
+  .arena-cancel {
+    color: var(--arena-muted);
+    font-size: 11px;
+  }
+  .arena-result-reopen {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--arena-surface);
+    border: 1px solid var(--arena-gold);
+    color: var(--arena-gold);
+  }
+  .arena-save-error {
+    border: 1px solid var(--arena-fire);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 10px;
+    color: var(--arena-fire);
+  }
+  .arena-save-error button {
+    display: block;
+    color: var(--arena-cyan);
+    text-decoration: underline;
+    margin-top: 4px;
+  }
+  .arena-dialog {
+    border-color: var(--arena-edge);
+    background: var(--arena-surface);
+    max-height: min(90dvh, 820px);
+    overflow-y: auto;
+    border-radius: 16px;
+    max-width: min(520px, calc(100vw - 24px));
+  }
+  .arena-dialog .neon-card {
+    border-color: var(--arena-edge);
+    background: transparent;
+    box-shadow: none;
+    border-radius: 10px;
+  }
+  .arena-dialog .arena-event strong {
+    color: var(--arena-gold);
+  }
+  .arena-dialog .balance-note,
+  .arena-dialog .arena-event p {
+    color: var(--arena-muted);
+    font-size: 12px;
+  }
+  .arena-dialog .arena-odds li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    padding: 3px 0;
+  }
+  .arena-dialog .arena-odds summary {
+    color: var(--arena-gold);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .arena-setting-group {
+    display: grid;
+    gap: 10px;
+  }
+  .arena-setting-group label {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .arena-setting-group select {
+    padding: 10px;
+    border: 1px solid var(--arena-edge);
+    border-radius: 8px;
+    background: var(--arena-ink);
+    font-size: 13px;
+  }
+  .arena-setting-group p {
+    color: var(--arena-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .arena-setting-switch {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+  }
+  .arena-home-link {
+    color: var(--arena-muted);
+    font-size: 12px;
+    text-align: center;
+    text-decoration: underline;
+  }
+  .arena-history-list {
+    display: grid;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--arena-muted);
+  }
+  .arena-history-list li {
+    padding: 9px 0;
+    border-bottom: 1px solid var(--arena-edge);
+  }
+  .arena-rule-list {
+    display: grid;
+    gap: 14px;
+  }
+  .arena-rule-list p {
+    font-size: 12px;
+    color: var(--arena-muted);
+    line-height: 1.6;
+  }
+  .arena-rule-list strong {
+    display: block;
+    color: var(--arena-text);
+    margin-bottom: 3px;
+  }
+  .arena-share-controls {
+    display: flex;
+    gap: 8px;
+  }
+  .arena-share-controls input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--arena-edge);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+  }
+  .arena-result-dialog .match-result-card {
+    padding: 0;
+    border: 0;
+  }
+  .arena-result-dialog .result-eyebrow {
+    color: var(--arena-gold);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+  }
+  .arena-result-dialog .match-result-card > h3 {
+    font-size: 30px;
+    margin: 8px 0;
+  }
+  .arena-result-dialog .match-result-card > p {
+    font-size: 13px;
+    color: var(--arena-muted);
+  }
+  .arena-result-dialog .match-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .arena-result-dialog .match-stat-grid div {
+    border: 1px solid var(--arena-edge);
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .arena-result-dialog .match-stat-grid strong {
+    display: block;
+    color: var(--arena-gold);
+    font-size: 22px;
+  }
+  .arena-result-dialog .match-stat-grid span {
+    color: var(--arena-muted);
+    font-size: 10px;
+  }
+  .arena-result-dialog .decisive-action {
+    border-left: 2px solid var(--arena-cyan);
+    padding-left: 12px;
+    margin-bottom: 16px;
+    font-size: 12px;
+  }
+  .arena-result-dialog .decisive-action > span {
+    color: var(--arena-muted);
+  }
+  .arena-result-dialog .cosmetic-progress {
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  .arena-result-dialog .cosmetic-progress strong {
+    color: var(--arena-gold);
+  }
+  .arena-result-dialog .cosmetic-progress p {
+    color: var(--arena-muted);
+    margin: 6px 0;
+  }
+  .arena-result-dialog .cosmetic-progress li {
+    color: var(--arena-cyan);
+    padding: 3px 0;
+  }
+  .arena-result-dialog .cta-link {
+    width: 100%;
+    color: var(--arena-ink);
+    background: var(--arena-cyan);
+    border: 0;
+    border-radius: 9px;
+  }
+  .arena-result-dialog .balance-metrics {
+    font-size: 11px;
+    color: var(--arena-muted);
+    margin-top: 16px;
+  }
+  .arena-result-dialog .balance-metrics summary {
+    color: var(--arena-gold);
+    cursor: pointer;
+  }
+  .arena-result-dialog .balance-metrics p {
+    margin: 10px 0;
+    line-height: 1.6;
+  }
+  .arena-result-dialog .balance-metrics li {
+    margin: 10px 0;
+    display: grid;
+    gap: 4px;
+  }
+  .arena-ui :is(button, a, select):focus-visible {
+    outline: 2px solid var(--arena-cyan);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 1100px) {
+    .arena-screen {
+      padding-inline: 10px;
+      gap: 6px;
+      grid-template-rows: 54px minmax(0, 1fr);
+    }
+    .arena-workspace {
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr) 250px;
+    }
+    .arena-brand {
+      width: 156px;
+    }
+    .arena-brand img {
+      height: 50px;
+    }
+    .arena-mode {
+      font-size: 10px;
+    }
+    .arena-identity {
+      gap: 9px;
+    }
+    .arena-player-stats {
+      gap: 12px;
+    }
+    .arena-material small {
+      display: none;
+    }
+    .arena-energy-ticks {
+      width: 140px;
+      gap: 3px;
+    }
+    .arena-energy-ticks i {
+      height: 12px;
+    }
+    .arena-console {
+      padding: 12px;
+    }
+    .arena-power-copy small {
+      font-size: 9px;
+    }
+    .arena-power-art {
+      width: 34px;
+      height: 34px;
+    }
+    .arena-power-art img {
+      width: 181px;
+      height: 60.3px;
+      top: -13.2px;
+      left: calc(-1.1px - var(--power-index) * 36.2px);
+    }
+  }
+  @media (max-height: 700px) and (min-width: 761px) {
+    .arena-screen {
+      grid-template-rows: 48px minmax(0, 1fr);
+      padding-bottom: 8px;
+    }
+    .arena-brand img {
+      height: 44px;
+    }
+    .arena-stage {
+      grid-template-rows: 36px minmax(0, 1fr) 36px;
+    }
+    .arena-clock {
+      font-size: 18px;
+    }
+    .arena-console {
+      padding: 10px;
+      gap: 8px;
+    }
+    .arena-power-list {
+      gap: 5px;
+    }
+    .arena-rack-rule {
+      margin: 5px 0 8px;
+    }
+    .arena-power-copy small {
+      font-size: 9px;
+      line-height: 1.3;
+    }
+    .arena-action-hint {
+      min-height: 32px;
+      padding-top: 6px;
+    }
+    .arena-event-compact {
+      padding-block: 8px;
+    }
+    .arena-recent p {
+      min-height: 0;
+      -webkit-line-clamp: 1;
+      margin-block: 4px;
+    }
+    .arena-rack-heading h2 {
+      font-size: 17px;
+    }
+    .arena-energy-total {
+      font-size: 20px;
+    }
+  }
+  @media (max-width: 760px) and (orientation: portrait) {
+    .arena-screen {
+      padding: 0 8px 8px;
+      grid-template-rows: 50px minmax(0, 1fr);
+      gap: 5px;
+    }
+    .arena-topbar {
+      gap: 5px;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+    .arena-brand {
+      width: 125px;
+      max-width: 100%;
+    }
+    .arena-brand img {
+      height: 44px;
+    }
+    .arena-mode {
+      display: none;
+    }
+    .arena-turn {
+      padding: 6px 8px;
+      max-width: 105px;
+      gap: 5px;
+    }
+    .arena-turn strong {
+      font-size: 10px;
+    }
+    .arena-tools {
+      gap: 3px;
+    }
+    .arena-tool {
+      width: 27px;
+      height: 29px;
+      padding: 5px;
+    }
+    .arena-fullscreen {
+      display: none;
+    }
+    .arena-workspace {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) 157px;
+      gap: 6px;
+    }
+    .arena-stage {
+      grid-template-rows: 36px minmax(0, 1fr) 36px;
+    }
+    .arena-hud {
+      width: 100%;
+      padding: 5px 8px;
+      gap: 6px;
+      border-radius: 9px;
+    }
+    .arena-player {
+      gap: 5px;
+    }
+    .arena-player > strong {
+      font-size: 11px;
+    }
+    .arena-player-avatar {
+      font-size: 21px;
+    }
+    .arena-player-color {
+      display: none;
+    }
+    .arena-player-stats {
+      gap: 8px;
+    }
+    .arena-clock {
+      min-width: 45px;
+      font-size: 18px;
+    }
+    .arena-energy-ticks {
+      width: 76px;
+      gap: 2px;
+    }
+    .arena-energy-ticks i {
+      height: 10px;
+      border-radius: 2px;
+    }
+    .arena-material svg {
+      width: 11px;
+    }
+    .arena-hud-energy {
+      gap: 3px;
+    }
+    .arena-hud-energy > svg {
+      width: 11px;
+      height: 11px;
+    }
+    .arena-hud-energy > strong {
+      font-size: 12px;
+    }
+    .arena-console {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 1fr 35px;
+      gap: 0;
+      padding: 7px 8px;
+      border-radius: 12px;
+    }
+    .arena-power-rack {
+      position: relative;
+    }
+    .arena-rack-heading {
+      height: 20px;
+    }
+    .arena-rack-heading .arena-eyebrow,
+    .arena-rack-rule,
+    .arena-energy-total {
+      display: none;
+    }
+    .arena-rack-heading h2 {
+      margin: 0;
+      font-size: 11px;
+      gap: 4px;
+    }
+    .arena-rack-heading h2 svg {
+      width: 12px;
+      height: 12px;
+    }
+    .arena-power-list {
+      grid-template-rows: 1fr;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 5px;
+    }
+    .arena-power-btn {
+      padding: 4px 2px;
+      display: grid;
+      justify-items: center;
+      align-content: center;
+      gap: 3px;
+      border-radius: 8px;
+      min-height: 0;
+    }
+    .arena-power-copy {
+      display: block;
+    }
+    .arena-power-copy strong {
+      font-size: 10px;
+    }
+    .arena-power-copy small {
+      display: none;
+    }
+    .arena-power-art {
+      width: 29px;
+      height: 29px;
+    }
+    .arena-power-art img {
+      width: 154.4px;
+      height: 51.5px;
+      top: -11.3px;
+      left: calc(-0.94px - var(--power-index) * 30.9px);
+    }
+    .arena-power-price {
+      font-size: 11px;
+    }
+    .arena-power-price svg {
+      width: 9px;
+      height: 9px;
+    }
+    .arena-action-hint {
+      position: absolute;
+      bottom: calc(100% + 42px);
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      min-height: 0;
+      padding: 5px 8px;
+      border-radius: 7px;
+      background: var(--arena-surface);
+      opacity: 0;
+      font-size: 10px;
+      z-index: 3;
+    }
+    .arena-action-hint[data-selected="true"] {
+      opacity: 1;
+    }
+    .arena-action-hint button {
+      pointer-events: auto;
+    }
+    .arena-event-compact {
+      padding: 4px 0 0;
+      border-bottom: 0;
+      gap: 7px;
+    }
+    .arena-event-symbol {
+      width: 22px;
+      height: 22px;
+      border: 0;
+      background: none;
+    }
+    .arena-event-copy {
+      grid-template-columns: auto auto;
+      gap: 0 7px;
+      align-items: center;
+      justify-content: start;
+    }
+    .arena-event-copy small {
+      font-size: 7px;
+    }
+    .arena-event-copy strong {
+      font-size: 11px;
+    }
+    .arena-event-copy > span {
+      display: none;
+    }
+    .arena-event-next {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .arena-event-next strong {
+      font-size: 11px;
+    }
+    .arena-event-next small {
+      font-size: 8px;
+    }
+    .arena-recent {
+      display: none;
+    }
+    .arena-save-error {
+      position: absolute;
+      bottom: 160px;
+      left: 8px;
+      right: 8px;
+      background: var(--arena-surface);
+      z-index: 4;
+    }
+    .arena-bomb-alert {
+      padding: 6px 8px;
+      flex-direction: column;
+      gap: 2px;
+      width: max-content;
+    }
+    .arena-bomb-confirm {
+      gap: 5px;
+      padding: 6px;
+    }
+    .arena-bomb-confirm > span {
+      font-size: 10px;
+    }
+    .arena-bomb-confirm button {
+      font-size: 10px;
+      padding: 6px 8px;
+    }
+  }
+  @media (max-height: 520px) and (orientation: landscape) {
+    .arena-screen {
+      grid-template-rows: 40px minmax(0, 1fr);
+      padding: 0 8px 6px;
+      gap: 4px;
+    }
+    .arena-brand {
+      width: 115px;
+    }
+    .arena-brand img {
+      height: 38px;
+    }
+    .arena-mode {
+      font-size: 9px;
+    }
+    .arena-workspace {
+      grid-template-columns: minmax(0, 1fr) 204px;
+      gap: 8px;
+    }
+    .arena-stage {
+      grid-template-rows: 30px minmax(0, 1fr) 30px;
+    }
+    .arena-hud {
+      padding: 3px 6px;
+      gap: 5px;
+    }
+    .arena-player > strong {
+      font-size: 10px;
+    }
+    .arena-player-color,
+    .arena-material small {
+      display: none;
+    }
+    .arena-energy-ticks {
+      width: 130px;
+      gap: 3px;
+    }
+    .arena-energy-ticks i {
+      height: 10px;
+    }
+    .arena-player-avatar {
+      font-size: 20px;
+    }
+    .arena-player-stats {
+      gap: 10px;
+    }
+    .arena-clock {
+      font-size: 16px;
+      min-width: 44px;
+    }
+    .arena-console {
+      padding: 7px;
+      gap: 4px;
+    }
+    .arena-rack-heading h2 {
+      font-size: 12px;
+      margin-top: 0;
+    }
+    .arena-rack-heading .arena-eyebrow,
+    .arena-rack-rule,
+    .arena-recent {
+      display: none;
+    }
+    .arena-energy-total {
+      font-size: 15px;
+    }
+    .arena-energy-total small {
+      padding: 0;
+      font-size: 9px;
+    }
+    .arena-power-list {
+      gap: 4px;
+      margin-top: 5px;
+    }
+    .arena-power-btn {
+      min-height: 0;
+      padding: 3px 5px;
+      gap: 6px;
+    }
+    .arena-power-art {
+      width: 26px;
+      height: 26px;
+    }
+    .arena-power-art img {
+      width: 138.5px;
+      height: 46.2px;
+      top: -10px;
+      left: calc(-0.84px - var(--power-index) * 27.7px);
+    }
+    .arena-power-copy strong {
+      font-size: 11px;
+    }
+    .arena-power-copy small {
+      display: none;
+    }
+    .arena-power-price {
+      font-size: 11px;
+    }
+    .arena-action-hint {
+      min-height: 22px;
+      padding-top: 3px;
+      font-size: 9px;
+    }
+    .arena-event-compact {
+      padding: 5px 0 0;
+      border-bottom: 0;
+    }
+    .arena-event-copy > span,
+    .arena-event-next small {
+      display: none;
+    }
+    .arena-event-copy small {
+      font-size: 7px;
+    }
+    .arena-event-copy strong {
+      font-size: 11px;
+    }
+    .arena-event-symbol {
+      width: 24px;
+      height: 24px;
+    }
+    .arena-turn {
+      padding: 5px 10px;
+      max-width: 260px;
+    }
+    .arena-turn strong {
+      font-size: 11px;
+    }
+    .arena-tool {
+      width: 28px;
+      height: 28px;
+      padding: 5px;
+    }
+  }
+}

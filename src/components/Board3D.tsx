@@ -889,6 +889,9 @@ export default function Board3D({
 function ArenaCamera({ flip }: { flip: boolean }) {
   const { camera, size } = useThree();
   useEffect(() => {
+    if (!size.width || !size.height) return;
+    const perspective = camera as THREE.PerspectiveCamera;
+    perspective.aspect = size.width / size.height;
     // Fit the near corners and tall pieces too, especially on a narrow phone.
     const bounds: THREE.Vector3[] = [];
     for (const x of [-1, 1])
@@ -898,10 +901,25 @@ function ArenaCamera({ flip }: { flip: boolean }) {
       }
     camera.updateProjectionMatrix();
     let distance = 10;
+    const elevation = size.width < size.height ? 1.18 : 0.66;
     for (let step = 0; step < 80; step++) {
-      camera.position.set(0, distance * 0.66 + 0.4, (flip ? -1 : 1) * distance * 0.75);
+      perspective.clearViewOffset();
+      camera.position.set(0, distance * elevation + 0.4, (flip ? -1 : 1) * distance * 0.75);
       camera.lookAt(0, 0.4, 0);
       camera.updateMatrixWorld();
+      // Center the projected board before fitting it. Perspective makes the
+      // near edge take more space; fitting only around the origin wastes height.
+      const projected = bounds.map((point) => point.clone().project(camera));
+      const top = Math.max(...projected.map((point) => point.y));
+      const bottom = Math.min(...projected.map((point) => point.y));
+      perspective.setViewOffset(
+        size.width,
+        size.height,
+        0,
+        (-(top + bottom) * size.height) / 4,
+        size.width,
+        size.height,
+      );
       const fits = bounds.every((point) => {
         const projected = point.clone().project(camera);
         return Math.abs(projected.x) <= 0.95 && Math.abs(projected.y) <= 0.95;
