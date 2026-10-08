@@ -81,6 +81,7 @@ function Index() {
           </a>
           <nav aria-label="Navegação principal">
             <a href="#jogar">A arena</a>
+            <Link to="/ranking">Ranking</Link>
             <a href="#poderes">Poderes</a>
             <a href="#como-jogar">Como jogar</a>
           </nav>
