@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, Bot, Check, ChevronDown, Copy, Crown, Gamepad2, MessageCircle, Radio, Shield, Sparkles, Swords, Timer, Zap } from "lucide-react";
+import { ArrowRight, Bot, Check, Copy, Crown, Gamepad2, MessageCircle, Radio, Shield, Sparkles, Swords, Timer, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { POWERS, type PowerId } from "@/lib/chess";
 import { newGameState } from "@/lib/new-game";
@@ -77,7 +77,7 @@ function Index() {
     <div className="league-bg" aria-hidden="true" style={{ backgroundImage: `linear-gradient(180deg,#07091399,#070913 94%),url("${arenaBg}")` }} />
     <header className="league-nav">
       <a className="league-logo" href="#inicio" aria-label="Chess League, início"><img src={logo} alt="Chess League" width={2172} height={724} fetchPriority="high" /></a>
-      <nav aria-label="Navegação principal"><a href="#arsenal">Arsenal</a><a href="#regras">Regras</a><a href="#como-jogar">Como jogar</a><Link to="/ranking">Ranking</Link></nav>
+      <nav aria-label="Navegação principal"><a href="#arsenal">Arsenal</a><a href="#regras">Regras</a><a href="#como-jogar">Como jogar</a></nav>
       <a href="#arena" className="league-nav-cta"><Gamepad2 size={17} aria-hidden="true" /> JOGAR AGORA</a>
     </header>
 
@@ -107,7 +107,7 @@ function Index() {
     </section>
 
     <section className="league-section" id="regras" aria-labelledby="rules-title"><div className="league-section-head"><div><span className="league-kicker">02 // UM NOVO CONFRONTO</span><h2 id="rules-title">O CLÁSSICO EVOLUIU. <em>E MUITO.</em></h2></div></div>
-      <div className="league-versus"><div className="league-versus-classic"><span>TRADICIONAL</span><h3>XADREZ CLÁSSICO</h3><ul><li>Somente movimentos tradicionais</li><li>Sem poderes especiais</li><li>Empates e partidas longas são possíveis</li></ul></div><div className="league-versus-mark">VS</div><div className="league-versus-new"><span>EVOLUÇÃO 2.0</span><h3>CHESS LEAGUE</h3><ul><li>Energia acumulada a cada rodada</li><li>5 poderes com recarga tática</li><li>5 minutos por jogador + xeque-mate</li><li>Entre apenas com nome e celular, sem senha</li></ul></div></div>
+      <div className="league-versus"><div className="league-versus-classic"><span>TRADICIONAL</span><h3>XADREZ CLÁSSICO</h3><ul><li>Somente movimentos tradicionais</li><li>Sem poderes especiais</li><li>Empates e partidas longas são possíveis</li></ul></div><div className="league-versus-mark">VS</div><div className="league-versus-new"><span>EVOLUÇÃO 2.0</span><h3>CHESS LEAGUE</h3><ul><li>Energia acumulada a cada rodada</li><li>5 poderes com recarga tática</li><li>5 minutos por jogador + xeque-mate</li><li>Entre com um apelido, sem cadastro</li></ul></div></div>
       <p className="league-rules-note"><Shield size={16}/> O Rei não pode ser capturado diretamente: a vitória acontece por xeque-mate ou tempo esgotado. Empates ainda são possíveis.</p>
     </section>
 
@@ -116,6 +116,6 @@ function Index() {
     <section className="league-chat-section"><div><span className="league-kicker">NOVIDADE // QUICK CHAT</span><h2>PROVOQUE. ELOGIE. <em>VENÇA.</em></h2><p>Uma reação rápida vale mais que mil palavras. Sem digitação, sem perder o lance.</p></div><div className="league-chat-pills" aria-label="Exemplos de reações rápidas"><span>Calculado.</span><span>Ops...</span><span>Belo lance!</span><span>GG!</span><MessageCircle aria-hidden="true"/></div></section>
 
     <section className="league-bottom"><Crown size={38} aria-hidden="true"/><div><span className="league-kicker">A ARENA ESTÁ PRONTA</span><h2>O PRÓXIMO CAMPEÃO <em>PODE SER VOCÊ.</em></h2></div><a href="#arena" className="league-action league-action-primary">COMEÇAR AGORA <ArrowRight size={20}/></a></section>
-    <footer className="league-footer"><a href="#inicio" aria-label="Voltar ao início"><img src={logo} alt="Chess League" width={2172} height={724} loading="lazy"/></a><span>© CHESS LEAGUE · XADREZ 2.0</span><Link to="/ranking">RANKING <ChevronDown size={15}/></Link></footer>
+    <footer className="league-footer"><a href="#inicio" aria-label="Voltar ao início"><img src={logo} alt="Chess League" width={2172} height={724} loading="lazy"/></a><span>© CHESS LEAGUE · XADREZ 2.0</span><a href="#arena">JOGAR AGORA <ArrowRight size={15}/></a></footer>
   </main>;
 }
