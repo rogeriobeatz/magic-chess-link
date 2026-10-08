@@ -763,3 +763,20 @@
 @keyframes chat-reaction{0%{opacity:0;transform:translate(-50%,-18px) scale(.92)}12%{opacity:1;transform:translate(-50%,0) scale(1)}82%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-12px) scale(.96)}}
 @media(max-width:640px){.quick-chat{right:12px;bottom:12px}.quick-chat-trigger{padding:12px}.quick-chat-trigger span{display:none}.quick-chat-menu{max-height:60dvh}.quick-chat-toast{top:86px}}
 @media(prefers-reduced-motion:reduce){.quick-chat-toast,.quick-chat-menu{animation:none}}
+
+/* Cinematic checkmate sequence */
+.arena-cinematic{position:fixed;inset:0;z-index:90;display:grid;place-items:center;overflow:hidden;cursor:pointer;background:radial-gradient(ellipse at center,#241639f7 0%,#080916f9 70%);color:#fff;animation:arena-final-in .35s ease-out both}
+.arena-cinematic:before,.arena-cinematic:after{content:"";position:absolute;inset:-30%;border:2px solid #dfb96844;border-radius:50%;animation:arena-final-ring 2.3s ease-out both;pointer-events:none}
+.arena-cinematic:after{animation-delay:.25s;border-color:#4de7ff55}
+.arena-cinematic-rays{position:absolute;inset:-80%;background:repeating-conic-gradient(from 0deg,#ffeab006 0deg 9deg,#e7b65519 10deg 11deg,transparent 12deg 22deg);animation:arena-final-spin 12s linear infinite;pointer-events:none}
+.arena-cinematic-content{position:relative;z-index:1;text-align:center;padding:28px;animation:arena-final-title 2.3s ease both}
+.arena-cinematic-content svg{width:clamp(55px,9vw,100px);height:clamp(55px,9vw,100px);color:#ffd889;filter:drop-shadow(0 0 24px #edb444);margin:0 auto 20px}
+.arena-cinematic-content span{display:block;letter-spacing:.5em;font-size:clamp(11px,2vw,16px);font-weight:900;color:#80e4f9}
+.arena-cinematic-content strong{display:block;margin:15px 0;font:900 clamp(46px,10vw,138px)/.97 Syne,Manrope,sans-serif;letter-spacing:-.045em;background:linear-gradient(#fff7df,#ffc454 65%,#895629);background-clip:text;-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 20px #edb44444)}
+.arena-cinematic-content p{font-size:clamp(12px,2vw,19px);font-weight:800;letter-spacing:.18em}
+.arena-cinematic-content small{display:block;margin-top:30px;color:#b8b1c4;letter-spacing:.1em}
+@keyframes arena-final-in{from{opacity:0}to{opacity:1}}
+@keyframes arena-final-title{0%{opacity:0;transform:scale(1.35);filter:blur(12px)}25%{opacity:1;filter:blur(0);transform:scale(1)}82%{opacity:1}100%{opacity:1}}
+@keyframes arena-final-ring{0%{transform:scale(.1);opacity:1}100%{transform:scale(1.6);opacity:0}}
+@keyframes arena-final-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.arena-cinematic,.arena-cinematic:before,.arena-cinematic:after,.arena-cinematic-rays,.arena-cinematic-content{animation:none}}
