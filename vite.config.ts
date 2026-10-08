@@ -7,6 +7,18 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  plugins: [
+    {
+      name: "arena-three-source-compat",
+      enforce: "pre",
+      transform(code, id) {
+        if (!id.replaceAll("\\", "/").endsWith("/src/components/Board3D.tsx")) return null;
+        // Devtools injects DOM data attributes into JSX. Three.js interprets
+        // dashed props as nested object paths, which crashes dynamic meshes.
+        return { code: code.replace(/\sdata-tsd-source="[^"]*"/g, ""), map: null };
+      },
+    },
+  ],
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

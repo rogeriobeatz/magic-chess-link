@@ -1,16 +1,24 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { initialState, POWERS } from "@/lib/chess";
+import { DIFFICULTIES, type Difficulty } from "@/lib/computer";
 import arenaBg from "../../img-refs/BG - Arena Cósmica de Xadrez Neon.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Chess League — Xadrez 3D com poderes online" },
-      { name: "description", content: "Crie uma partida de xadrez com poderes e jogue online enviando um link para seu amigo." },
+      {
+        name: "description",
+        content:
+          "Crie uma partida de xadrez com poderes e jogue online enviando um link para seu amigo.",
+      },
       { property: "og:title", content: "Chess League — Xadrez 3D com poderes online" },
-      { property: "og:description", content: "Partidas PvP de xadrez com poderes. Só enviar o link." },
+      {
+        property: "og:description",
+        content: "Partidas PvP de xadrez com poderes. Só enviar o link.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -22,6 +30,7 @@ function Index() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
 
   async function create() {
     setLoading(true);
@@ -61,32 +70,56 @@ function Index() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={create}
-            disabled={loading}
-            className="landing-cta"
-          >
+          <button type="button" onClick={create} disabled={loading} className="landing-cta">
             {loading ? "Criando..." : "Criar partida"}
           </button>
         </header>
 
         <section className="hero-grid">
           <div className="hero-copy">
-            <span className="eyebrow">ARENA PvP</span>
+            <span className="eyebrow">ARENA PvP & SOLO</span>
             <h1>
               Chess <span>League</span>
             </h1>
             <p>
-              Xadrez em uma arena 3D neon, com poderes explosivos e partidas instantâneas por link.
+              Xadrez em uma arena 3D neon, com poderes explosivos. Desafie um amigo pelo link ou
+              enfrente o computador.
             </p>
 
             <div className="hero-actions">
               <button type="button" onClick={create} disabled={loading} className="primary-action">
                 {loading ? "Criando..." : "Criar partida"}
               </button>
-              <button type="button" className="secondary-action">Ver poderes</button>
+              <Link to="/jogo/$id" params={{ id: "treino" }} className="secondary-action">
+                Simular partida
+              </Link>
             </div>
+
+            <section className="solo-setup" aria-label="Jogar contra o computador">
+              <h2>Jogue sozinho</h2>
+              <label htmlFor="solo-difficulty">Dificuldade do computador</label>
+              <div className="solo-start">
+                <select
+                  id="solo-difficulty"
+                  value={difficulty}
+                  onChange={(event) => setDifficulty(event.target.value as Difficulty)}
+                >
+                  {(Object.keys(DIFFICULTIES) as Difficulty[]).map((level) => (
+                    <option key={level} value={level}>
+                      {DIFFICULTIES[level].name}
+                    </option>
+                  ))}
+                </select>
+                <Link
+                  to="/jogo/$id"
+                  params={{ id: `solo-${difficulty}` }}
+                  className="primary-action"
+                >
+                  Jogar sozinho
+                </Link>
+              </div>
+              <p>{DIFFICULTIES[difficulty].description}</p>
+            </section>
 
             <div className="hero-stats">
               <div>
@@ -116,7 +149,10 @@ function Index() {
               <div className="showcase-board">
                 <div className="mini-board" aria-hidden="true">
                   {Array.from({ length: 64 }, (_, index) => (
-                    <span key={index} className={((index + Math.floor(index / 8)) % 2 === 0 ? "light" : "dark")} />
+                    <span
+                      key={index}
+                      className={(index + Math.floor(index / 8)) % 2 === 0 ? "light" : "dark"}
+                    />
                   ))}
                 </div>
               </div>
@@ -155,8 +191,8 @@ function Index() {
           </div>
           <ul>
             <li>Cada jogador ganha 1 de energia por turno e pode chegar até 10.</li>
-            <li>Você usa 1 poder por turno antes de mover, e ainda precisa fazer o lance.</li>
-            <li>Vence quem capturar o rei adversário, sem xeque-mate tradicional.</li>
+            <li>Em cada turno, mova uma peça ou use um poder. Usar um poder passa a vez.</li>
+            <li>Vence quem der xeque-mate. Você também pode usar poderes para proteger seu rei.</li>
             <li>Peões que chegam ao fim viram Dama.</li>
             <li>Capturar uma peça concede energia extra.</li>
           </ul>
