@@ -6,6 +6,7 @@ import { ArenaBalance, MatchResult } from "@/components/ArenaBalance";
 import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
 import { recordMatch } from "@/lib/progress";
+import { currentPlayer, submitResult } from "@/lib/player";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
 import { Button } from "@/components/ui/button";
@@ -157,6 +158,9 @@ function GamePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const submitting = useRef(false);
+  const awarded = useRef(new Set<string>());
+  const [playerName, setPlayerName] = useState("Jogador");
+  useEffect(() => { void currentPlayer().then(p => { if (p) setPlayerName(p.display_name); }).catch(() => {}); }, []);
 
   useEffect(() => {
     let active = true;
@@ -225,6 +229,15 @@ function GamePage() {
       /* The result panel reports unavailable local storage. */
     }
   }, [s, over, saving, training, me, id, difficulty, row?.id]);
+  useEffect(() => {
+    if (!over || !s || !row || local || !me || me === "spec" || saving) return;
+    const matchKey = row.id + ":" + (s.matchId ?? "legacy");
+    if (awarded.current.has(matchKey)) return;
+    const token = localStorage.getItem("xadrez-token-" + row.id);
+    if (!token) return;
+    awarded.current.add(matchKey);
+    void submitResult(row.id, token).catch(() => { awarded.current.delete(matchKey); });
+  }, [over, s, row, me, local, saving]);
   const myTurn =
     !!s &&
     row?.id === id &&
@@ -581,6 +594,8 @@ function GamePage() {
             <strong>{!row.black_token ? "Aguardando rival" : status}</strong>
           </div>
           <nav className="arena-tools" aria-label="Controles da arena">
+            <span className="arena-player-name">{playerName}</span>
+            <Link to="/ranking" className="arena-ranking-link">Ranking</Link>
             {!local && me !== "spec" && (
               <button
                 type="button"
