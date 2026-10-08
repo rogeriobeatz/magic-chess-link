@@ -7,7 +7,6 @@ import { ArenaBalance, MatchResult } from "@/components/ArenaBalance";
 import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
 import { recordMatch } from "@/lib/progress";
-import { currentPlayer, submitResult } from "@/lib/player";
 import { useArenaSound } from "@/lib/arena-audio";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
@@ -168,9 +167,17 @@ function GamePage() {
   const sideRef = useRef<Color | "spec" | null>(null);
   const chatLastReceived = useRef<Record<string, number>>({});
   const submitting = useRef(false);
-  const awarded = useRef(new Set<string>());
-  const [playerName, setPlayerName] = useState("Jogador");
-  useEffect(() => { void currentPlayer().then(p => { if (p) setPlayerName(p.display_name); }).catch(() => {}); }, []);
+  const [playerName, setPlayerName] = useState("");
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  useEffect(() => {
+    setPlayerName(sessionStorage.getItem("chess-nickname-" + id) ?? "");
+  }, [id]);
+  function saveNickname() {
+    const name = nicknameDraft.trim().replace(/\\s+/g, " ").slice(0, 24);
+    if (!name) return;
+    sessionStorage.setItem("chess-nickname-" + id, name);
+    setPlayerName(name);
+  }
 
   sideRef.current = me;
   playerNameRef.current = playerName;
@@ -280,15 +287,6 @@ function GamePage() {
       /* The result panel reports unavailable local storage. */
     }
   }, [s, over, saving, training, me, id, difficulty, row?.id]);
-  useEffect(() => {
-    if (!over || !s || !row || local || !me || me === "spec" || saving) return;
-    const matchKey = row.id + ":" + (s.matchId ?? "legacy");
-    if (awarded.current.has(matchKey)) return;
-    const token = localStorage.getItem("xadrez-token-" + row.id);
-    if (!token) return;
-    awarded.current.add(matchKey);
-    void submitResult(row.id, token).catch(() => { awarded.current.delete(matchKey); });
-  }, [over, s, row, me, local, saving]);
   const myTurn =
     !!s &&
     row?.id === id &&
@@ -535,6 +533,19 @@ function GamePage() {
     setSel(p && p.c === s.turn ? i : null);
   }
 
+  if (!playerName && id !== "treino" && !notFound) return (
+    <main className="nickname-screen">
+      <form className="nickname-modal" onSubmit={(event) => { event.preventDefault(); saveNickname(); }}>
+        <span>CHESS LEAGUE // IDENTIFICAÇÃO</span>
+        <h1>COMO VAMOS TE CHAMAR?</h1>
+        <p>Escolha um apelido para esta partida. Sem telefone, sem senha, sem cadastro.</p>
+        <label htmlFor="nickname-input">SEU NOME NA ARENA</label>
+        <input id="nickname-input" autoFocus autoComplete="off" maxLength={24} required value={nicknameDraft} onChange={event => setNicknameDraft(event.target.value)} placeholder="Ex.: Rei do Xeque" />
+        <button type="submit">ENTRAR NA ARENA →</button>
+        <small>O nome fica apenas nesta sessão do navegador.</small>
+      </form>
+    </main>
+  );
   if (notFound)
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4">
@@ -646,7 +657,7 @@ function GamePage() {
           </div>
           <nav className="arena-tools" aria-label="Controles da arena">
             <span className="arena-player-name">{playerName}</span>
-            <Link to="/ranking" className="arena-ranking-link">Ranking</Link>
+
             {!local && me !== "spec" && (
               <button
                 type="button"
