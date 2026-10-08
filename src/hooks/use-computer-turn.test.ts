@@ -27,6 +27,21 @@ afterEach(() => {
 const blackTurn = () => applyMove(initialState(), 52, 36)!;
 
 describe("Automatic computer turns", () => {
+  it("controls white after a solo rematch swaps the human to black", () => {
+    const onAction = vi.fn();
+    const state = initialState();
+    renderHook(() =>
+      useComputerTurn({ state, difficulty: "medium", enabled: true, computerColor: "w", onAction }),
+    );
+    expect(FakeWorker.instances).toHaveLength(1);
+    act(() => {
+      FakeWorker.instances[0]!.onmessage?.({
+        data: { action: { kind: "move", from: 52, to: 36 } },
+      });
+      vi.advanceTimersByTime(600);
+    });
+    expect(onAction).toHaveBeenCalledWith({ kind: "move", from: 52, to: 36 }, state);
+  });
   it("starts only on the computer turn and sends the selected difficulty", () => {
     const onAction = vi.fn();
     const { rerender, result } = renderHook(

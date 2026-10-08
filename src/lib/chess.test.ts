@@ -28,12 +28,16 @@ describe("Powers consume the whole turn", () => {
   ])("%s passes play to the opponent and charges only its cost", (power, target, dest) => {
     const state = initialState();
     state.energy = { w: 10, b: 4 };
+    if (power === "bolt") {
+      state.board[48] = null;
+      state.board[32] = { t: "p", c: "w" };
+    }
     const before = JSON.stringify(state);
     const next = applyPower(state, power, target, dest)!;
     expect(next).not.toBeNull();
     expect(next.turn).toBe("b");
     expect(next.move).toBe(1);
-    expect(next.energy).toEqual({ w: 10 - POWERS[power].cost, b: 5 });
+    expect(next.energy).toEqual({ w: 10 - POWERS[power].cost, b: 4 });
     expect(applyMove(next, 51, 35)).toBeNull();
     expect(applyPower(next, "shield", 51)).toBeNull();
     expect(applyMove(next, 11, 27)).not.toBeNull();
@@ -71,8 +75,9 @@ describe("Powers consume the whole turn", () => {
     state.energy.w = 10;
     expect(isInCheck(state)).toBe(true);
     expect(applyPower(state, "shield", 48)).toBeNull();
-    expect(powerTargets(state, "shield")).toEqual([60]);
-    expect(applyPower(state, "bolt", 4)?.turn).toBe("b");
+    expect(powerTargets(state, "shield")).toEqual([]);
+    expect(applyPower(state, "shield", 60)).toBeNull();
+    expect(applyPower(state, "bolt", 4)).toBeNull();
     expect(applyPower(state, "freeze", 4)?.turn).toBe("b");
   });
 });
@@ -132,8 +137,8 @@ describe("Check, mate and legal escapes", () => {
     expect(isInCheck(checked)).toBe(true);
     expect(checked.winner).toBeNull();
     expect(checked.result).toBeUndefined();
-    expect(powerTargets(checked, "shield")).toContain(60);
-    expect(applyPower(checked, "shield", 60)?.turn).toBe("b");
+    expect(powerTargets(checked, "freeze")).toContain(39);
+    expect(applyPower(checked, "freeze", 39)?.turn).toBe("b");
   });
 
   it("records stalemate as a draw", () => {

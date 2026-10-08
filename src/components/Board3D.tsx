@@ -6,7 +6,8 @@ import * as THREE from "three";
 import {
   isFrozen,
   isShielded,
-  isInCheck,
+  isKingThreatened,
+  bombArea,
   type Color,
   type Fx,
   type GameState,
@@ -528,7 +529,7 @@ function Effects({ bursts }: { bursts: Burst[] }) {
         if (b.kind === "bomb") {
           return (
             <group key={b.id}>
-              <Explosion at={pos(b.squares[4] ?? last)} color={token("blast")} size={2.2} />
+              <Explosion at={pos(b.squares[0] ?? last)} color={token("blast")} size={2.2} />
               {b.squares.map((s) => (
                 <Explosion key={s} at={pos(s)} color={token("amber")} size={0.7} />
               ))}
@@ -584,6 +585,7 @@ export default function Board3D({
   selected,
   onSquare,
   effects = true,
+  bombPreview = null,
 }: {
   state: GameState;
   flip: boolean;
@@ -591,12 +593,13 @@ export default function Board3D({
   selected: number | null;
   onSquare: (i: number) => void;
   effects?: boolean;
+  bombPreview?: { center: number; targets: number[] } | null;
 }) {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [shake, setShake] = useState(0);
   const lastFx = useRef<number | undefined>(state.fx?.id);
   const marble = useMarbleTexture();
-  const checkSquare = isInCheck(state)
+  const checkSquare = isKingThreatened(state)
     ? state.board.findIndex((p) => p?.t === "k" && p.c === state.turn)
     : -1;
 
@@ -625,6 +628,13 @@ export default function Board3D({
     i: number;
   }[];
   const keyed = useStableKeys(state);
+  const danger = new Set((state.bombs ?? []).flatMap((bomb) => bombArea(bomb.center)));
+  const marked = new Set(
+    (state.bombs ?? []).flatMap((bomb) =>
+      bomb.targets.map((target) => state.board.findIndex((piece) => piece?.id === target.id)),
+    ),
+  );
+  const preview = new Set(bombPreview ? bombArea(bombPreview.center) : []);
 
   return (
     <Canvas
@@ -804,14 +814,36 @@ export default function Board3D({
                 />
               </mesh>
             )}
+            {(danger.has(i) || preview.has(i)) && (
+              <mesh position={[0, 0.016, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[0.93, 0.93]} />
+                <meshBasicMaterial
+                  color={token("blast")}
+                  transparent
+                  opacity={danger.has(i) ? 0.22 : 0.13}
+                  toneMapped={false}
+                  depthWrite={false}
+                />
+              </mesh>
+            )}
+            {(marked.has(i) || bombPreview?.targets.includes(i)) && (
+              <mesh position={[0, 0.034, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <ringGeometry args={[0.39, 0.48, 32]} />
+                <meshBasicMaterial
+                  color={token(danger.has(i) || preview.has(i) ? "blast" : "shield")}
+                  toneMapped={false}
+                  depthWrite={false}
+                />
+              </mesh>
+            )}
           </group>
         );
       })}
 
       {pieces.map(({ p, i }) => (
         <group
-          key={keyed[i] ?? i}
-          name={`piece-${keyed[i] ?? i}`}
+          key={`${state.matchId ?? "legacy"}:${p.id ?? keyed[i] ?? i}`}
+          name={`piece-${p.id ?? keyed[i] ?? i}`}
           onClick={(e) => {
             e.stopPropagation();
             onSquare(i);
@@ -840,7 +872,7 @@ export default function Board3D({
         maxPolarAngle={1.1}
         minAzimuthAngle={-0.35 + (flip ? Math.PI : 0)}
         maxAzimuthAngle={0.35 + (flip ? Math.PI : 0)}
-        target={[0, 0, 0]}
+        target={[0, 0.4, 0]}
       />
       <EffectComposer>
         <Bloom
@@ -857,10 +889,26 @@ export default function Board3D({
 function ArenaCamera({ flip }: { flip: boolean }) {
   const { camera, size } = useThree();
   useEffect(() => {
-    const distance = Math.max(11.8, 14.4 / (size.width / size.height));
-    camera.position.set(0, distance * 0.66, (flip ? -1 : 1) * distance * 0.75);
-    camera.lookAt(0, 0, 0);
+    // Fit the near corners and tall pieces too, especially on a narrow phone.
+    const bounds: THREE.Vector3[] = [];
+    for (const x of [-1, 1])
+      for (const z of [-1, 1]) {
+        bounds.push(new THREE.Vector3(x * 4.8, -0.6, z * 4.8));
+        bounds.push(new THREE.Vector3(x * 3.9, 2.1, z * 3.9));
+      }
     camera.updateProjectionMatrix();
+    let distance = 10;
+    for (let step = 0; step < 80; step++) {
+      camera.position.set(0, distance * 0.66 + 0.4, (flip ? -1 : 1) * distance * 0.75);
+      camera.lookAt(0, 0.4, 0);
+      camera.updateMatrixWorld();
+      const fits = bounds.every((point) => {
+        const projected = point.clone().project(camera);
+        return Math.abs(projected.x) <= 0.95 && Math.abs(projected.y) <= 0.95;
+      });
+      if (fits) break;
+      distance *= 1.03;
+    }
   }, [camera, size.width, size.height, flip]);
   return null;
 }

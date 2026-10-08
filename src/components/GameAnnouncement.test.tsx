@@ -10,6 +10,43 @@ afterEach(() => {
 });
 
 describe("Gameplay announcements", () => {
+  it.each(["repetition", "insufficient-material"] as const)("announces %s as a draw", (result) => {
+    render(<GameAnnouncement state={{ ...initialState(), result }} viewer="w" active effects />);
+    expect(screen.getByText("EMPATE!")).toBeInTheDocument();
+    expect(screen.queryByText("VOCÊ PERDEU!")).not.toBeInTheDocument();
+  });
+
+  it("announces timeout before the final result", () => {
+    render(
+      <GameAnnouncement
+        state={{ ...initialState(), result: "timeout", winner: "b" }}
+        viewer="w"
+        active
+        effects
+      />,
+    );
+    expect(screen.getByText("TEMPO ESGOTADO!")).toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(1800));
+    expect(screen.getByText("VOCÊ PERDEU!")).toBeInTheDocument();
+  });
+
+  it("distinguishes arming the bomb from its explosion", () => {
+    const state = {
+      ...initialState(),
+      fx: { id: 1, kind: "bomb-arm" as const, squares: [27, 28] },
+    };
+    const { rerender } = render(<GameAnnouncement state={state} viewer="w" active effects />);
+    expect(screen.getByText("BOMBA ARMADA!")).toBeInTheDocument();
+    rerender(
+      <GameAnnouncement
+        state={{ ...state, move: 2, fx: { ...state.fx, id: 2, kind: "bomb" } }}
+        viewer="w"
+        active
+        effects
+      />,
+    );
+    expect(screen.getByText("EXPLOSÃO!")).toBeInTheDocument();
+  });
   it("shows mate before the loser's result and keeps the result visible", () => {
     const state = { ...initialState(), winner: "b" as const, result: "checkmate" as const };
     render(<GameAnnouncement state={state} viewer="w" active effects />);

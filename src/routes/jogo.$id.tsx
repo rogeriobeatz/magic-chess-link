@@ -2,6 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 const Board3D = lazy(() => import("@/components/Board3D"));
 import GameAnnouncement from "@/components/GameAnnouncement";
+import { ArenaBalance, MatchResult } from "@/components/ArenaBalance";
+import { timeLabel } from "@/lib/time";
+import { actionContext, newGameState } from "@/lib/new-game";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
 import { Button } from "@/components/ui/button";
@@ -20,16 +23,29 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
-import { applyComputerAction, DIFFICULTIES, soloDifficulty } from "@/lib/computer";
+import {
+  applyComputerAction,
+  DIFFICULTIES,
+  soloDifficulty,
+  soloGameId,
+  type Difficulty,
+} from "@/lib/computer";
 import { useComputerTurn } from "@/hooks/use-computer-turn";
 import {
   applyMove,
   applyPower,
   movesFrom,
   powerTargets,
-  initialState,
   isGameOver,
-  isInCheck,
+  isKingThreatened,
+  startClock,
+  clockRemaining,
+  applyTimeout,
+  powerCost,
+  powerCooldown,
+  bombTargets,
+  opposite,
+  RESULT_LABELS,
   POWERS,
   MAX_ENERGY,
   type Color,
@@ -57,6 +73,16 @@ export const Route = createFileRoute("/jogo/$id")({
 
 type Row = { id: string; white_token: string; black_token: string | null; state: GameState };
 
+function newestRow(current: Row | null, incoming: Row): Row {
+  if (current?.id !== incoming.id) return incoming;
+  const previous = current.state.revision;
+  const next = incoming.state.revision;
+  if (previous !== undefined && (next === undefined || next < previous)) return current;
+  if (previous === undefined && next === undefined && incoming.state.move < current.state.move)
+    return current;
+  return incoming;
+}
+
 const joins = new Map<string, Promise<{ row: Row; me: Color | "spec" } | null>>();
 
 function joinGame(id: string) {
@@ -74,7 +100,7 @@ function joinGame(id: string) {
         token = crypto.randomUUID();
         const { data: upd } = await supabase
           .from("games")
-          .update({ black_token: token })
+          .update({ black_token: token, state: startClock(r.state, Date.now()) as never })
           .eq("id", id)
           .is("black_token", null)
           .select("*")
@@ -104,6 +130,11 @@ function GamePage() {
   const [sel, setSel] = useState<number | null>(null);
   const [power, setPower] = useState<PowerId | null>(null);
   const [tpFrom, setTpFrom] = useState<number | null>(null);
+  const [bombCenter, setBombCenter] = useState<number | null>(null);
+  const [marked, setMarked] = useState<number[]>([]);
+  const [now, setNow] = useState(Date.now);
+  const [rematching, setRematching] = useState(false);
+  const [openAttempt, setOpenAttempt] = useState(0);
   const [copied, setCopied] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [effects, setEffects] = useState(true);
@@ -118,7 +149,16 @@ function GamePage() {
     setNotFound(false);
     setSaveError("");
     if (local) {
-      setRow({ id, white_token: "local-white", black_token: "local-black", state: initialState() });
+      setRow({
+        id,
+        white_token: "local-white",
+        black_token: "local-black",
+        state: newGameState({
+          training,
+          roulette: !training && !id.endsWith("-classico"),
+          start: solo,
+        }),
+      });
       setMe("w");
       return;
     }
@@ -128,7 +168,7 @@ function GamePage() {
         setNotFound(true);
         return;
       }
-      setRow(res.row);
+      setRow((current) => newestRow(current, res.row));
       setMe(res.me);
     });
     const ch = supabase
@@ -137,15 +177,26 @@ function GamePage() {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
         (p) => {
-          if (active) setRow(p.new as unknown as Row);
+          if (active) setRow((current) => newestRow(current, p.new as unknown as Row));
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void supabase
+            .from("games")
+            .select("*")
+            .eq("id", id)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (active && data) setRow((current) => newestRow(current, data as unknown as Row));
+            });
+        }
+      });
     return () => {
       active = false;
       supabase.removeChannel(ch);
     };
-  }, [id, local]);
+  }, [id, local, solo, training]);
 
   const s = row?.state;
   const myTurn =
@@ -160,9 +211,10 @@ function GamePage() {
     state: s,
     difficulty,
     enabled: solo && row?.id === id && !saving,
+    computerColor: me === "b" ? "w" : "b",
     onAction: (action, expected) => {
-      if (row?.state !== expected || expected.turn !== "b") return;
-      const next = applyComputerAction(expected, action);
+      if (row?.state !== expected || expected.turn === me) return;
+      const next = applyComputerAction(expected, action, actionContext());
       if (next) void push(next);
     },
   });
@@ -171,43 +223,193 @@ function GamePage() {
     setSel(null);
     setPower(null);
     setTpFrom(null);
-  }, [s?.move, id]);
+    setBombCenter(null);
+    setMarked([]);
+  }, [s?.move, s?.matchId, id]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !s ||
+      row?.id !== id ||
+      !row.black_token ||
+      !me ||
+      me === "spec" ||
+      saving ||
+      submitting.current
+    )
+      return;
+    const expired = applyTimeout(s, now);
+    if (expired) void push(expired);
+    // The timeout is compared against the saved state when submitted, like a move.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s, now, me, saving, row?.black_token, row?.id, id]);
+
+  useEffect(() => {
+    if (local || !s?.rematch?.accepted || !me || me === "spec" || saving || rematching) return;
+    let active = true;
+    const nextId = s.rematch.gameId;
+    void supabase
+      .from("games")
+      .select("*")
+      .eq("id", nextId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        if (!data) {
+          setSaveError(
+            "A revanche foi aceita, mas não foi possível abri-la. Use Abrir revanche para tentar novamente.",
+          );
+          return;
+        }
+        const next = data as unknown as Row;
+        const color = opposite(me);
+        const token = color === "w" ? next.white_token : next.black_token;
+        if (!token) return;
+        localStorage.setItem(`xadrez-token-${nextId}`, token);
+        void navigate({ to: "/jogo/$id", params: { id: nextId } });
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    s?.rematch?.accepted,
+    s?.rematch?.gameId,
+    me,
+    local,
+    navigate,
+    saving,
+    rematching,
+    openAttempt,
+  ]);
 
   const highlights = useMemo(() => {
     if (!s || !myTurn) return new Set<number>();
+    if (power === "bomb" && bombCenter !== null) return new Set(bombTargets(s, bombCenter));
     if (power) return new Set(powerTargets(s, power, tpFrom ?? undefined));
     if (sel !== null) return new Set(movesFrom(s, sel));
     return new Set<number>();
-  }, [s, myTurn, power, sel, tpFrom]);
+  }, [s, myTurn, power, sel, tpFrom, bombCenter]);
 
-  async function push(next: GameState) {
-    if (submitting.current) return;
+  async function push(proposed: GameState) {
+    if (submitting.current || !row || row.id !== id) return false;
     submitting.current = true;
     setSaving(true);
     setSaveError("");
     const previous = row;
+    const next = { ...proposed, revision: (previous.state.revision ?? 0) + 1 };
     setRow((r) => (r ? { ...r, state: next } : r));
     try {
       if (!local) {
-        const { error } = await supabase
+        let update = supabase
           .from("games")
           .update({ state: next as never, updated_at: new Date().toISOString() })
           .eq("id", id);
+        update =
+          previous.state.revision === undefined
+            ? update.is("state->>revision", null).eq("state->>move", String(previous.state.move))
+            : update.eq("state->>revision", String(previous.state.revision));
+        const { data, error } = await update.select("*").maybeSingle();
         if (error) throw error;
+        if (!data) throw new Error("stale-state");
+        setRow((current) =>
+          current?.id === id ? newestRow(current, data as unknown as Row) : current,
+        );
       }
-      await new Promise((resolve) => setTimeout(resolve, effects ? 700 : 0));
+      await new Promise((resolve) =>
+        setTimeout(resolve, effects && next.move !== previous.state.move ? 700 : 0),
+      );
+      return true;
     } catch {
-      setRow((current) => (current?.state.fx?.id === next.fx?.id ? previous : current));
-      setSaveError("Não foi possível salvar a jogada. Tente novamente.");
+      const { data } = await supabase.from("games").select("*").eq("id", id).maybeSingle();
+      if (data) setRow((current) => (current?.id === id ? (data as unknown as Row) : current));
+      else setRow((current) => (current?.state === next ? previous : current));
+      setSaveError(
+        "A partida foi atualizada ou a ação não pôde ser salva. Confira a arena e tente novamente.",
+      );
+      return false;
     } finally {
       submitting.current = false;
       setSaving(false);
     }
   }
 
+  async function rematch() {
+    if (!s || !row || !isGameOver(s) || me === "spec" || !me || rematching || saving) return;
+    if (local) {
+      if (solo) setMe(opposite(me));
+      setRow({
+        ...row,
+        state: newGameState({ training, roulette: s.roulette?.enabled ?? false, start: solo }),
+      });
+      setSaveError("");
+      return;
+    }
+    if (s.rematch?.accepted) {
+      setOpenAttempt((attempt) => attempt + 1);
+      return;
+    }
+    setRematching(true);
+    setSaveError("");
+    try {
+      if (s.rematch && s.rematch.requestedBy !== me) {
+        const { data: nextData, error: readError } = await supabase
+          .from("games")
+          .select("*")
+          .eq("id", s.rematch.gameId)
+          .single();
+        if (readError) throw readError;
+        const nextRow = nextData as unknown as Row;
+        const started = startClock(nextRow.state, Date.now());
+        if (started !== nextRow.state) {
+          const { data: updated, error: startError } = await supabase
+            .from("games")
+            .update({ state: started as never })
+            .eq("id", nextRow.id)
+            .eq("state->>revision", String(nextRow.state.revision ?? 0))
+            .select("*")
+            .maybeSingle();
+          if (startError || !updated) throw startError ?? new Error("stale-rematch");
+        }
+        await push({ ...s, rematch: { ...s.rematch, accepted: true } });
+      } else if (!s.rematch) {
+        const { data, error } = await supabase
+          .from("games")
+          .insert({
+            white_token: crypto.randomUUID(),
+            black_token: crypto.randomUUID(),
+            state: newGameState({ roulette: s.roulette?.enabled ?? false }) as never,
+          })
+          .select("id")
+          .single();
+        if (error || !data) throw error ?? new Error("rematch");
+        await push({ ...s, rematch: { gameId: data.id, requestedBy: me, accepted: false } });
+      }
+    } catch {
+      setSaveError("Não foi possível preparar a revanche. Tente novamente.");
+    } finally {
+      setRematching(false);
+    }
+  }
+
   function click(i: number) {
     if (!s || !myTurn || submitting.current) return;
     if (power) {
+      if (power === "bomb" && bombCenter !== null) {
+        if (highlights.has(i))
+          setMarked((current) =>
+            current.includes(i)
+              ? current.filter((square) => square !== i)
+              : current.length < 2
+                ? [...current, i]
+                : current,
+          );
+        return;
+      }
       if (!highlights.has(i)) {
         setPower(null);
         setTpFrom(null);
@@ -217,19 +419,24 @@ function GamePage() {
         setTpFrom(i);
         return;
       }
+      if (power === "bomb") {
+        setBombCenter(i);
+        setMarked([]);
+        return;
+      }
       const next =
         power === "teleport"
           ? tpFrom !== null
-            ? applyPower(s, power, tpFrom, i)
+            ? applyPower(s, power, tpFrom, i, actionContext())
             : null
-          : applyPower(s, power, i);
+          : applyPower(s, power, i, undefined, actionContext());
       setPower(null);
       setTpFrom(null);
       if (next) push(next);
       return;
     }
     if (sel !== null && highlights.has(i)) {
-      const next = applyMove(s, sel, i);
+      const next = applyMove(s, sel, i, actionContext());
       setSel(null);
       if (next) push(next);
       return;
@@ -260,10 +467,10 @@ function GamePage() {
   const opp: Color = meColor === "w" ? "b" : "w";
   const powerColor = training ? s.turn : meColor;
   const over = isGameOver(s);
-  const check = isInCheck(s);
+  const check = isKingThreatened(s);
 
   let status = "";
-  if (s.result === "stalemate") status = "Empate — rei afogado";
+  if (s.result && !s.winner) status = `Empate — ${RESULT_LABELS[s.result]}`;
   else if (s.winner)
     status =
       training || me === "spec"
@@ -273,7 +480,7 @@ function GamePage() {
           : "Você perdeu.";
   else if (training)
     status = `Treino — vez das ${s.turn === "w" ? "Brancas" : "Pretas"}${check ? " · Xeque!" : ""}`;
-  else if (solo && s.turn === "b")
+  else if (solo && s.turn !== me)
     status = computer.error
       ? "Computador aguardando"
       : computer.thinking
@@ -307,7 +514,7 @@ function GamePage() {
               </strong>
               <p>
                 {solo && difficulty
-                  ? `Modo solo · ${DIFFICULTIES[difficulty].name} · Você joga com as brancas.`
+                  ? `Modo solo · ${DIFFICULTIES[difficulty].name} · Você joga com as ${meColor === "w" ? "brancas" : "pretas"}.`
                   : training
                     ? "Simulação local: controle os dois lados da arena."
                     : !row.black_token
@@ -371,6 +578,10 @@ function GamePage() {
                           : "Na arena"
                 }
                 energy={s.energy[opp]}
+                material={s.material?.[opp] ?? 0}
+                clock={s.clock?.limitMs ? timeLabel(clockRemaining(s, opp, now)) : "—"}
+                active={s.turn === opp && !over && !!row.black_token}
+                urgent={!!s.clock?.limitMs && clockRemaining(s, opp, now) <= 30000}
               />
               <div className="board-wrap">
                 <Suspense
@@ -387,6 +598,9 @@ function GamePage() {
                     selected={sel ?? tpFrom}
                     onSquare={click}
                     effects={effects}
+                    bombPreview={
+                      bombCenter === null ? null : { center: bombCenter, targets: marked }
+                    }
                   />
                 </Suspense>
                 <GameAnnouncement
@@ -408,10 +622,72 @@ function GamePage() {
                       : "Sua vez em breve..."
                 }
                 energy={s.energy[meColor]}
+                material={s.material?.[meColor] ?? 0}
+                clock={s.clock?.limitMs ? timeLabel(clockRemaining(s, meColor, now)) : "—"}
+                active={s.turn === meColor && !over && !!row.black_token}
+                urgent={!!s.clock?.limitMs && clockRemaining(s, meColor, now) <= 30000}
               />
+              {power === "bomb" && bombCenter !== null && (
+                <div className="bomb-confirm board-bomb-confirm">
+                  <p>Alvos marcados: {marked.length}/2 · uma resposta para escapar</p>
+                  <Button
+                    variant="arena"
+                    disabled={!marked.length || !myTurn}
+                    onClick={() => {
+                      const next = applyPower(s, "bomb", bombCenter, undefined, {
+                        ...actionContext(),
+                        bombTargets: marked,
+                      });
+                      if (next) void push(next);
+                    }}
+                  >
+                    Armar bomba · {marked.length} alvo(s)
+                  </Button>
+                  <Button
+                    variant="arena"
+                    onClick={() => {
+                      setPower(null);
+                      setBombCenter(null);
+                      setMarked([]);
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              )}
             </div>
           </section>
           <aside className="side-panel">
+            {over && (
+              <MatchResult
+                state={s}
+                gameId={id}
+                viewer={me}
+                difficulty={difficulty}
+                training={training}
+                confirmed={!saving}
+                rematch={() => void rematch()}
+                rematchDisabled={
+                  saving ||
+                  rematching ||
+                  (!local && !s.rematch?.accepted && s.rematch?.requestedBy === me)
+                }
+                rematchLabel={
+                  training
+                    ? "Reiniciar simulação"
+                    : local
+                      ? "Revanche · trocar cores"
+                      : s.rematch?.accepted
+                        ? "Abrir revanche"
+                        : s.rematch
+                          ? s.rematch.requestedBy === me
+                            ? "Revanche enviada · aguardando"
+                            : "Aceitar revanche · trocar cores"
+                          : "Convidar para revanche"
+                }
+              />
+            )}
+            <ArenaBalance state={s} effects={effects} />
             {solo && difficulty && (
               <section className="neon-card simulation-card solo-card">
                 <div className="card-header">
@@ -419,7 +695,8 @@ function GamePage() {
                   <h3>Você × Computador</h3>
                 </div>
                 <p>
-                  Você joga com as brancas. O computador também usa poderes e respeita os turnos.
+                  Você joga com as {meColor === "w" ? "brancas" : "pretas"}. O computador usa os
+                  mesmos poderes, preços e recargas.
                 </p>
                 <label htmlFor="game-difficulty">Dificuldade</label>
                 <select
@@ -429,7 +706,12 @@ function GamePage() {
                   onChange={(event) => {
                     const level = event.target.value;
                     if (Object.hasOwn(DIFFICULTIES, level))
-                      void navigate({ to: "/jogo/$id", params: { id: `solo-${level}` } });
+                      void navigate({
+                        to: "/jogo/$id",
+                        params: {
+                          id: soloGameId(level as Difficulty, s.roulette?.enabled ?? false),
+                        },
+                      });
                   }}
                 >
                   {(Object.keys(DIFFICULTIES) as (keyof typeof DIFFICULTIES)[]).map((level) => (
@@ -446,7 +728,11 @@ function GamePage() {
                   className="cta-link"
                   disabled={saving}
                   onClick={() => {
-                    setRow({ ...row, state: initialState() });
+                    setMe("w");
+                    setRow({
+                      ...row,
+                      state: newGameState({ roulette: s.roulette?.enabled ?? false, start: true }),
+                    });
                     setSel(null);
                     setPower(null);
                     setTpFrom(null);
@@ -480,7 +766,7 @@ function GamePage() {
                   className="cta-link"
                   disabled={saving}
                   onClick={() => {
-                    setRow({ ...row, state: initialState() });
+                    setRow({ ...row, state: newGameState({ training: true, roulette: false }) });
                     setSaveError("");
                   }}
                 >
@@ -545,10 +831,13 @@ function GamePage() {
                 <div className="power-list">
                   {(Object.keys(POWERS) as PowerId[]).map((k, index) => {
                     const pw = POWERS[k];
+                    const cost = powerCost(s, k);
+                    const cooldown = powerCooldown(s, k, powerColor);
                     const can =
                       myTurn &&
                       !s.powerUsed &&
-                      s.energy[powerColor] >= pw.cost &&
+                      !cooldown &&
+                      s.energy[powerColor] >= cost &&
                       powerTargets(s, k).length > 0;
                     return (
                       <Button
@@ -561,17 +850,26 @@ function GamePage() {
                           !can
                             ? !myTurn
                               ? "Aguarde sua vez"
-                              : s.energy[powerColor] < pw.cost
-                                ? `Requer ${pw.cost} de energia`
-                                : "Nenhum alvo legal disponível"
+                              : cooldown
+                                ? `Recarga: ${cooldown} rodada(s)`
+                                : s.energy[powerColor] < cost
+                                  ? `Requer ${cost} de energia`
+                                  : "Nenhum alvo legal disponível"
                             : `${pw.name} — encerra o turno`
                         }
                         onClick={() => {
                           setSel(null);
                           setTpFrom(null);
+                          setBombCenter(null);
+                          setMarked([]);
                           setPower(power === k ? null : k);
+                          if (window.matchMedia("(max-width: 760px)").matches)
+                            document.querySelector(".board-panel")?.scrollIntoView({
+                              behavior: effects ? "smooth" : "auto",
+                              block: "start",
+                            });
                         }}
-                        className={`power-item whitespace-normal ${power === k ? "active" : ""}`}
+                        className={`power-item h-auto whitespace-normal ${power === k ? "active" : ""}`}
                       >
                         <span className="power-left">
                           <span className={`power-icon power-sprite-${index}`} aria-hidden="true">
@@ -584,7 +882,7 @@ function GamePage() {
                         </span>
                         <span className="power-cost">
                           <Zap />
-                          {pw.cost}
+                          {cooldown ? `${cooldown}r` : cost}
                         </span>
                       </Button>
                     );
@@ -592,9 +890,11 @@ function GamePage() {
                 </div>
                 {power && (
                   <p className="power-helper">
-                    {power === "teleport" && tpFrom !== null
-                      ? "Escolha a casa de destino."
-                      : "Escolha o alvo no tabuleiro."}
+                    {power === "bomb" && bombCenter !== null
+                      ? `Selecione até 2 peças marcadas (${marked.length}/2). Elas terão uma resposta para escapar.`
+                      : power === "teleport" && tpFrom !== null
+                        ? "Escolha a casa de destino."
+                        : "Escolha o alvo no tabuleiro."}
                   </p>
                 )}
               </section>
@@ -647,11 +947,19 @@ function PlayerBar({
   label,
   detail,
   energy,
+  material,
+  clock,
+  active,
+  urgent,
 }: {
   opponent?: boolean;
   label: string;
   detail: string;
   energy: number;
+  material: number;
+  clock: string;
+  active: boolean;
+  urgent: boolean;
 }) {
   return (
     <div className={opponent ? "opponent-bar" : "player-bar"}>
@@ -663,6 +971,17 @@ function PlayerBar({
           <strong>{label}</strong>
           <span className="label">{detail}</span>
         </div>
+      </div>
+      <div className="player-match-metrics">
+        <span title="Peão 1 · cavalo/bispo 3 · torre 5 · dama 9">
+          Material <strong>{material}</strong>
+        </span>
+        <strong
+          className={`match-clock ${active ? "clock-active" : ""} ${urgent ? "clock-urgent" : ""}`}
+          aria-label={`Tempo de ${label}: ${clock}`}
+        >
+          {clock}
+        </strong>
       </div>
       <div
         className={`energy-inline ${opponent ? "energy-magenta" : "energy-cyan"}`}

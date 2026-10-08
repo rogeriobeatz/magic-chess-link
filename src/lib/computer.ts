@@ -7,7 +7,10 @@ import {
   isShielded,
   movesFrom,
   powerTargets,
-  POWERS,
+  powerCost,
+  bombTargets,
+  bombArea,
+  type ActionContext,
   type Color,
   type GameState,
   type PowerId,
@@ -40,19 +43,30 @@ export const DIFFICULTIES = {
 export type Difficulty = keyof typeof DIFFICULTIES;
 export type ComputerAction =
   | { kind: "move"; from: number; to: number }
-  | { kind: "power"; power: PowerId; target: number; dest?: number };
+  | { kind: "power"; power: PowerId; target: number; dest?: number; targets?: number[] };
 export type ComputerRequest = { state: GameState; difficulty: Difficulty };
 export type ComputerResponse = { action: ComputerAction | null; error?: string };
 
 export function soloDifficulty(id: string): Difficulty | null {
-  const key = id.startsWith("solo-") ? id.slice(5) : "";
+  const key = id.startsWith("solo-") ? id.slice(5).replace(/-classico$/, "") : "";
   return Object.hasOwn(DIFFICULTIES, key) ? (key as Difficulty) : null;
 }
 
-export function applyComputerAction(state: GameState, action: ComputerAction): GameState | null {
+export function soloGameId(difficulty: Difficulty, roulette: boolean): string {
+  return `solo-${difficulty}${roulette ? "" : "-classico"}`;
+}
+
+export function applyComputerAction(
+  state: GameState,
+  action: ComputerAction,
+  context: ActionContext = {},
+): GameState | null {
   return action.kind === "move"
-    ? applyMove(state, action.from, action.to)
-    : applyPower(state, action.power, action.target, action.dest);
+    ? applyMove(state, action.from, action.to, context)
+    : applyPower(state, action.power, action.target, action.dest, {
+        ...context,
+        ...(action.targets ? { bombTargets: action.targets } : {}),
+      });
 }
 
 const VALUE: Record<PType, number> = { p: 100, n: 320, b: 335, r: 500, q: 900, k: 0 };
@@ -60,7 +74,7 @@ const MATE = 100_000;
 
 function evaluate(state: GameState, perspective: Color): number {
   if (state.winner) return state.winner === perspective ? MATE : -MATE;
-  if (state.result === "stalemate") return 0;
+  if (state.result) return 0;
   let score = (state.energy[perspective] - state.energy[perspective === "w" ? "b" : "w"]) * 12;
   state.board.forEach((piece, square) => {
     if (!piece) return;
@@ -87,6 +101,19 @@ function evaluate(state: GameState, perspective: Color): number {
   });
   if (isInCheck(state, perspective)) score -= 45;
   if (isInCheck(state, perspective === "w" ? "b" : "w")) score += 45;
+  for (const bomb of state.bombs ?? []) {
+    const area = bombArea(bomb.center);
+    const threatened = bomb.targets.reduce((sum, target) => {
+      const square = state.board.findIndex((piece) => piece?.id === target.id);
+      const piece = state.board[square];
+      return (
+        sum +
+        (piece && area.includes(square) && !isShielded(piece, state.move) ? VALUE[piece.t] : 0)
+      );
+    }, 0);
+    // A reply can save one target. Search evaluates the actual escape/detonation next.
+    score += (bomb.owner === perspective ? 1 : -1) * threatened * 0.35;
+  }
   return score;
 }
 
@@ -100,11 +127,19 @@ function* legalActions(state: GameState): Generator<ComputerAction> {
   }
   // Teleport has the largest branching factor, so examine it last.
   for (const power of ["bolt", "bomb", "freeze", "shield", "teleport"] as PowerId[]) {
-    if (state.energy[state.turn] < POWERS[power].cost) continue;
+    if (state.energy[state.turn] < powerCost(state, power)) continue;
     for (const target of powerTargets(state, power)) {
       if (power === "teleport") {
         for (const dest of powerTargets(state, power, target))
           yield { kind: "power", power, target, dest };
+      } else if (power === "bomb") {
+        const targets = bombTargets(state, target);
+        // Different markings can lead to different tactical responses.
+        for (let i = 0; i < targets.length; i++) {
+          yield { kind: "power", power, target, targets: [targets[i]!] };
+          for (let j = i + 1; j < targets.length; j++)
+            yield { kind: "power", power, target, targets: [targets[i]!, targets[j]!] };
+        }
       } else yield { kind: "power", power, target };
     }
   }

@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { isGameOver, type GameState } from "@/lib/chess";
+import { isGameOver, type GameState, type Color } from "@/lib/chess";
 import type { ComputerAction, ComputerResponse, Difficulty } from "@/lib/computer";
 
 export function useComputerTurn({
   state,
   difficulty,
   enabled,
+  computerColor = "b",
   onAction,
 }: {
   state: GameState | undefined;
   difficulty: Difficulty | null;
   enabled: boolean;
+  computerColor?: Color;
   onAction: (action: ComputerAction, expected: GameState) => void;
 }) {
   const [thinking, setThinking] = useState(false);
@@ -23,7 +25,7 @@ export function useComputerTurn({
 
   useEffect(() => {
     setError("");
-    if (!enabled || !state || !difficulty || state.turn !== "b" || isGameOver(state)) {
+    if (!enabled || !state || !difficulty || state.turn !== computerColor || isGameOver(state)) {
       setThinking(false);
       return;
     }
@@ -69,7 +71,7 @@ export function useComputerTurn({
       worker?.terminate();
       if (timer) clearTimeout(timer);
     };
-  }, [state, difficulty, enabled, attempt]);
+  }, [state, difficulty, enabled, computerColor, attempt]);
 
   return { thinking, error, retry: () => setAttempt((value) => value + 1) };
 }

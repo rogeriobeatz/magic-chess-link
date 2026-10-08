@@ -79,6 +79,8 @@ describe("Computer opponent", () => {
 
   it("can use an offensive power instead of a normal move", () => {
     const state = emptyState();
+    state.board[63] = null;
+    state.board[47] = { t: "k", c: "w" };
     state.board[28] = { t: "r", c: "b" };
     state.energy.w = 6;
     const action = chooseComputerAction(state, "easy", { random: () => 0 })!;
@@ -101,6 +103,7 @@ describe("Computer opponent", () => {
   });
 
   it("recognizes only supported solo URLs", () => {
+    expect(soloDifficulty("solo-hard-classico")).toBe("hard");
     expect(soloDifficulty("solo-hard")).toBe("hard");
     expect(soloDifficulty("solo-medium")).toBe("medium");
     expect(soloDifficulty("solo-easy")).toBe("easy");

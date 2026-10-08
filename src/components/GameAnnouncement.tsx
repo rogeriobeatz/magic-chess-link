@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Crown, ShieldAlert, Sparkles, Swords, Zap } from "lucide-react";
 import {
   isGameOver,
-  isInCheck,
+  isKingThreatened,
+  RESULT_LABELS,
   POWERS,
   type Color,
   type GameState,
@@ -17,11 +18,11 @@ type Announcement = {
 
 function announcementFor(state: GameState, viewer: Color | "spec"): Announcement | null {
   if (isGameOver(state)) {
-    if (state.result === "stalemate")
+    if (!state.winner)
       return {
         kind: "draw",
         title: "EMPATE!",
-        detail: "Rei afogado. Nenhuma ação legal disponível.",
+        detail: state.result ? RESULT_LABELS[state.result] : "Partida encerrada em empate.",
       };
     if (viewer === "spec")
       return {
@@ -33,7 +34,7 @@ function announcementFor(state: GameState, viewer: Color | "spec"): Announcement
       ? { kind: "win", title: "VOCÊ VENCEU!", detail: "O trono da arena é seu." }
       : { kind: "lose", title: "VOCÊ PERDEU!", detail: "Uma nova partida. Uma nova chance." };
   }
-  if (isInCheck(state))
+  if (isKingThreatened(state))
     return {
       kind: "check",
       title: "XEQUE!",
@@ -41,6 +42,18 @@ function announcementFor(state: GameState, viewer: Color | "spec"): Announcement
         viewer === state.turn
           ? "Proteja seu rei para continuar."
           : `O rei das ${state.turn === "w" ? "brancas" : "pretas"} está ameaçado.`,
+    };
+  if (state.fx?.kind === "bomb-arm")
+    return {
+      kind: "power",
+      title: "BOMBA ARMADA!",
+      detail: "Alvos marcados. Uma resposta para escapar ou usar escudo.",
+    };
+  if (state.fx?.kind === "bomb")
+    return {
+      kind: "power",
+      title: "EXPLOSÃO!",
+      detail: "A resposta terminou. A bomba atingiu os alvos desprotegidos na área.",
     };
   if (state.fx && state.fx.kind in POWERS)
     return {
@@ -51,7 +64,11 @@ function announcementFor(state: GameState, viewer: Color | "spec"): Announcement
   if (state.fx?.kind === "promote")
     return { kind: "promote", title: "NOVA DAMA!", detail: "Um peão chegou ao topo." };
   if (state.fx?.kind === "capture")
-    return { kind: "capture", title: "CAPTURA!", detail: "+1 de energia para quem capturou." };
+    return {
+      kind: "capture",
+      title: "CAPTURA!",
+      detail: "Material conquistado. Escolha bem a próxima resposta.",
+    };
   if (viewer === state.turn)
     return { kind: "turn", title: "SUA VEZ!", detail: "Mova uma peça ou use um poder." };
   return null;
@@ -74,6 +91,7 @@ export default function GameAnnouncement({
   const title = event?.title;
   const detail = event?.detail;
   const mate = state.result === "checkmate";
+  const timeout = state.result === "timeout";
 
   useEffect(() => {
     if (!active || !kind || !title || !detail) {
@@ -81,8 +99,12 @@ export default function GameAnnouncement({
       return;
     }
     const timers: ReturnType<typeof setTimeout>[] = [];
-    if (mate) {
-      setAnnouncement({ kind: "mate", title: "XEQUE-MATE!", detail: "O rei não tem saída." });
+    if (mate || timeout) {
+      setAnnouncement({
+        kind: "mate",
+        title: timeout ? "TEMPO ESGOTADO!" : "XEQUE-MATE!",
+        detail: timeout ? "O relógio decidiu a partida." : "O rei não tem saída.",
+      });
       timers.push(setTimeout(() => setAnnouncement({ kind, title, detail }), 1800));
     } else {
       setAnnouncement({ kind, title, detail });
@@ -97,7 +119,7 @@ export default function GameAnnouncement({
     }
     return () => timers.forEach(clearTimeout);
     // Scalar event fields prevent a realtime echo from replaying the animation.
-  }, [kind, title, detail, mate, state.move, active]);
+  }, [kind, title, detail, mate, timeout, state.move, state.matchId, active]);
 
   if (!announcement) return null;
   const Icon = ["win", "mate"].includes(announcement.kind)
