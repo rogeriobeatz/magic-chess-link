@@ -2,10 +2,13 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 const Board3D = lazy(() => import("@/components/Board3D"));
 import GameAnnouncement from "@/components/GameAnnouncement";
+import { QuickChat, validReaction, type ChatReaction } from "@/components/QuickChat";
 import { ArenaBalance, MatchResult } from "@/components/ArenaBalance";
 import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
 import { recordMatch } from "@/lib/progress";
+import { currentPlayer, submitResult } from "@/lib/player";
+import { useArenaSound } from "@/lib/arena-audio";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
 import { Button } from "@/components/ui/button";
@@ -154,10 +157,38 @@ function GamePage() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
+  const [cinematic, setCinematic] = useState(false);
+  const seenFinals = useRef(new Set<string>());
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const chatChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [chatReaction, setChatReaction] = useState<ChatReaction | null>(null);
+  const chatTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerNameRef = useRef("Jogador");
+  const sideRef = useRef<Color | "spec" | null>(null);
+  const chatLastReceived = useRef<Record<string, number>>({});
   const submitting = useRef(false);
+  const awarded = useRef(new Set<string>());
+  const [playerName, setPlayerName] = useState("Jogador");
+  useEffect(() => { void currentPlayer().then(p => { if (p) setPlayerName(p.display_name); }).catch(() => {}); }, []);
 
+  sideRef.current = me;
+  playerNameRef.current = playerName;
+  function showChat(message: ChatReaction) {
+    setChatReaction(message);
+    if (chatTimeout.current) clearTimeout(chatTimeout.current);
+    chatTimeout.current = setTimeout(() => setChatReaction(null), 3000);
+  }
+  async function sendChat(message: ChatReaction): Promise<boolean> {
+    const channel = chatChannel.current;
+    if (!channel || !row?.black_token || !me || me === "spec" || me !== message.side) return false;
+    try {
+      const response = await channel.send({ type: "broadcast", event: "quick-chat", payload: message });
+      if (response !== "ok") return false;
+      showChat(message);
+      return true;
+    } catch { return false; }
+  }
   useEffect(() => {
     let active = true;
     setNotFound(false);
@@ -187,6 +218,15 @@ function GamePage() {
     });
     const ch = supabase
       .channel(`game-${id}`)
+      .on("broadcast", { event: "quick-chat" }, ({ payload }) => {
+        if (!active || !validReaction(payload) || sideRef.current === "spec") return;
+        const sender = payload as ChatReaction;
+        if (sender.side === sideRef.current) return;
+        const time = Date.now();
+        if (time - (chatLastReceived.current[sender.side] ?? 0) < 2800) return;
+        chatLastReceived.current[sender.side] = time;
+        showChat(sender);
+      })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
@@ -206,17 +246,32 @@ function GamePage() {
             });
         }
       });
+    chatChannel.current = ch;
     return () => {
       active = false;
+      if (chatChannel.current === ch) chatChannel.current = null;
+      if (chatTimeout.current) clearTimeout(chatTimeout.current);
       supabase.removeChannel(ch);
     };
   }, [id, local, solo, training]);
 
   const s = row?.state;
   const over = !!s && isGameOver(s);
+  useArenaSound(s, effects, me, id);
   useEffect(() => {
-    setResultOpen(over);
-  }, [over, s?.matchId]);
+    if (!over || !s || !effects || s.result !== "checkmate") {
+      setCinematic(false);
+      setResultOpen(over);
+      return;
+    }
+    const finalKey = id + ":" + (s.matchId ?? "legacy");
+    if (seenFinals.current.has(finalKey)) { setResultOpen(true); return; }
+    seenFinals.current.add(finalKey);
+    setResultOpen(false);
+    setCinematic(true);
+    const transition = setTimeout(() => { setCinematic(false); setResultOpen(true); }, 2300);
+    return () => clearTimeout(transition);
+  }, [over, s?.matchId, s?.result, id, effects]);
   useEffect(() => {
     if (!s || row?.id !== id || !over || saving || training || !me || me === "spec") return;
     try {
@@ -225,6 +280,15 @@ function GamePage() {
       /* The result panel reports unavailable local storage. */
     }
   }, [s, over, saving, training, me, id, difficulty, row?.id]);
+  useEffect(() => {
+    if (!over || !s || !row || local || !me || me === "spec" || saving) return;
+    const matchKey = row.id + ":" + (s.matchId ?? "legacy");
+    if (awarded.current.has(matchKey)) return;
+    const token = localStorage.getItem("xadrez-token-" + row.id);
+    if (!token) return;
+    awarded.current.add(matchKey);
+    void submitResult(row.id, token).catch(() => { awarded.current.delete(matchKey); });
+  }, [over, s, row, me, local, saving]);
   const myTurn =
     !!s &&
     row?.id === id &&
@@ -581,6 +645,8 @@ function GamePage() {
             <strong>{!row.black_token ? "Aguardando rival" : status}</strong>
           </div>
           <nav className="arena-tools" aria-label="Controles da arena">
+            <span className="arena-player-name">{playerName}</span>
+            <Link to="/ranking" className="arena-ranking-link">Ranking</Link>
             {!local && me !== "spec" && (
               <button
                 type="button"
@@ -639,6 +705,19 @@ function GamePage() {
           </nav>
         </header>
 
+        <QuickChat side={me} name={playerName} onSend={sendChat} reaction={chatReaction} enabled={!local && !!row.black_token && !over} />
+        {cinematic && s?.winner && (
+          <div className="arena-cinematic" role="status" aria-live="assertive" onClick={() => { setCinematic(false); setResultOpen(true); }}>
+            <div className="arena-cinematic-rays" aria-hidden="true" />
+            <div className="arena-cinematic-content">
+              <Crown aria-hidden="true" />
+              <span>FIM DE JOGO</span>
+              <strong>XEQUE-MATE</strong>
+              <p>{s.winner === me ? "VOCÊ CONQUISTOU A ARENA" : "A ARENA TEM UM VENCEDOR"}</p>
+              <small>Clique para continuar</small>
+            </div>
+          </div>
+        )}
         <div className="arena-workspace">
           <section className="arena-stage" aria-label="Arena de xadrez">
             <PlayerBar
