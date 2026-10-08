@@ -68,13 +68,13 @@ function PieceMesh({ t, c, frozen, shielded }: { t: PType; c: Color; frozen: boo
       {shielded && (
         <mesh position={[0, 0.5, 0]}>
           <sphereGeometry args={[0.62, 24, 24]} />
-          <meshBasicMaterial color=token("shield") transparent opacity={0.18} toneMapped={false} wireframe />
+          <meshBasicMaterial color={token("shield")} transparent opacity={0.18} toneMapped={false} wireframe />
         </mesh>
       )}
       {frozen && (
         <mesh position={[0, 0.5, 0]}>
           <icosahedronGeometry args={[0.55, 0]} />
-          <meshStandardMaterial color=token("frost") transparent opacity={0.35} roughness={0} metalness={0.2} />
+          <meshStandardMaterial color={token("frost")} transparent opacity={0.35} roughness={0} metalness={0.2} />
         </mesh>
       )}
     </group>
@@ -157,7 +157,7 @@ function Lightning({ at }: { at: [number, number] }) {
   return (
     <mesh ref={ref} position={[at[0], 5, at[1]]}>
       <cylinderGeometry args={[0.08, 0.2, 10, 8]} />
-      <meshBasicMaterial color=token("bolt") transparent toneMapped={false} />
+      <meshBasicMaterial color={token("bolt")} transparent toneMapped={false} />
     </mesh>
   );
 }
@@ -168,20 +168,20 @@ function Effects({ bursts }: { bursts: Burst[] }) {
       {bursts.map((b) => {
         const last = b.squares[b.squares.length - 1];
         if (last === undefined) return null;
-        if (b.kind === "capture") return <Explosion key={b.id} at={pos(last)} color=token("flame") size={1.2} />;
+        if (b.kind === "capture") return <Explosion key={b.id} at={pos(last)} color={token("flame")} size={1.2} />;
         if (b.kind === "bomb") {
           return (
             <group key={b.id}>
-              <Explosion at={pos(b.squares[4] ?? last)} color=token("blast") size={2.2} />
-              {b.squares.map((s) => <Explosion key={s} at={pos(s)} color=token("amber") size={0.7} />)}
+              <Explosion at={pos(b.squares[4] ?? last)} color={token("blast")} size={2.2} />
+              {b.squares.map((s) => <Explosion key={s} at={pos(s)} color={token("amber")} size={0.7} />)}
             </group>
           );
         }
-        if (b.kind === "bolt") return <group key={b.id}><Lightning at={pos(last)} /><Explosion at={pos(last)} color=token("bolt") size={1.4} /></group>;
-        if (b.kind === "freeze") return <Explosion key={b.id} at={pos(last)} color=token("ice") size={0.8} />;
-        if (b.kind === "shield") return <Explosion key={b.id} at={pos(last)} color=token("shield") size={0.7} />;
-        if (b.kind === "teleport") return <group key={b.id}>{b.squares.map((s) => <Explosion key={s} at={pos(s)} color=token("violet") size={0.9} />)}</group>;
-        if (b.kind === "promote") return <Explosion key={b.id} at={pos(last)} color=token("selection") size={1.5} />;
+        if (b.kind === "bolt") return <group key={b.id}><Lightning at={pos(last)} /><Explosion at={pos(last)} color={token("bolt")} size={1.4} /></group>;
+        if (b.kind === "freeze") return <Explosion key={b.id} at={pos(last)} color={token("ice")} size={0.8} />;
+        if (b.kind === "shield") return <Explosion key={b.id} at={pos(last)} color={token("shield")} size={0.7} />;
+        if (b.kind === "teleport") return <group key={b.id}>{b.squares.map((s) => <Explosion key={s} at={pos(s)} color={token("violet")} size={0.9} />)}</group>;
+        if (b.kind === "promote") return <Explosion key={b.id} at={pos(last)} color={token("selection")} size={1.5} />;
         return null;
       })}
     </>
@@ -239,7 +239,7 @@ export default function Board3D({
         <Lightformer intensity={3} color={neon("b")} position={[5, 1, 0]} rotation-y={-Math.PI / 2} scale={[20, 1, 1]} />
       </Environment>
 
-      {effects && <Sparkles count={40} scale={[10, 3, 10]} position={[0, 1.5, 0]} size={2} color=token("white") speed={0.4} />
+      {effects && <Sparkles count={40} scale={[10, 3, 10]} position={[0, 1.5, 0]} size={2} color={token("white")} speed={0.4} />}
 
       {/* Architectural gold and neon frame, open to the arena behind it. */}
       <mesh position={[0, -0.31, 0]} receiveShadow><boxGeometry args={[9.2, 0.55, 9.2]} /><meshStandardMaterial color={token("base")} metalness={0.85} roughness={0.2} /></mesh>
