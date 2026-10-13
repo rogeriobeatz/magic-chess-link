@@ -1,0 +1,28 @@
+{
+  "id": "/",
+  "name": "Chess League — Arena de Xadrez",
+  "short_name": "Chess League",
+  "description": "Xadrez clássico, poderes e modo CAOS em uma arena 3D.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone"
+  ],
+  "background_color": "#070913",
+  "theme_color": "#070913",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icons/chess-league.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "games",
+    "entertainment"
+  ]
+}
