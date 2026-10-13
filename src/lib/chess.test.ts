@@ -107,6 +107,40 @@ describe("Power action economy", () => {
     expect(isFrozen(thawed.board[12]!, thawed.move)).toBe(false);
   });
 
+  it("pawn fury permits a two-square advance after leaving the starting rank", () => {
+    const state = initialState({ roulette: true, rouletteRoll: 6 });
+    state.board[48] = null;
+    state.board[40] = { t: "p", c: "w", id: "pawn-fury-test" };
+    expect(movesFrom(state, 40)).toContain(24);
+    state.roulette!.event = "stable";
+    expect(movesFrom(state, 40)).not.toContain(24);
+  });
+
+  it("unstable rank blocks movement into rank 5 for one completed round", () => {
+    const state = emptyState();
+    state.board[60] = { t: "k", c: "w" };
+    state.board[4] = { t: "k", c: "b" };
+    state.board[32] = { t: "r", c: "w" };
+    state.roulette = { enabled: true, event: "unstable", cycle: 1, lastRolledMove: 0 };
+    state.unstableRank = 3;
+    expect(movesFrom(state, 32)).not.toContain(24);
+    state.move = 2;
+    expect(movesFrom(state, 32)).toContain(24);
+  });
+
+  it("reactive king overload freezes an invader capturing within two squares", () => {
+    const state = emptyState();
+    state.turn = "b";
+    state.board[60] = { t: "k", c: "w" };
+    state.board[4] = { t: "k", c: "b" };
+    state.board[35] = { t: "r", c: "b" };
+    state.board[51] = { t: "n", c: "w" };
+    const captured = applyMove(state, 35, 51)!;
+    expect(captured).not.toBeNull();
+    expect(captured.lastDecision).toContain("SOBRECARGA DO REI");
+    expect(captured.board[51]?.frozen).toBe(3);
+  });
+
   it("rejects incomplete, occupied, off-board and fractional teleport destinations", () => {
     const state = initialState();
     state.energy.w = 10;
