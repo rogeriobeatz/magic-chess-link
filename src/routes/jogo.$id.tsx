@@ -8,6 +8,7 @@ import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
 import { recordMatch } from "@/lib/progress";
 import { useArenaSound } from "@/lib/arena-audio";
+import { useArenaHaptics } from "@/lib/haptics";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
 import { Button } from "@/components/ui/button";
@@ -286,6 +287,7 @@ function GamePage() {
   const s = row?.state;
   const over = !!s && isGameOver(s);
   useArenaSound(s, effects, me, id);
+  useArenaHaptics(s, effects);
   useEffect(() => {
     if (!over || !s || !effects || s.result !== "checkmate") {
       setCinematic(false);
