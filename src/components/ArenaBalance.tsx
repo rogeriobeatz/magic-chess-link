@@ -59,11 +59,11 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
               {Object.values(ARENA_EVENTS).map((item) => (
                 <li key={item.name}>
                   <span>{item.name}</span>
-                  <strong>25%</strong>
+                  <strong>{(100 / Object.keys(ARENA_EVENTS).length).toFixed(1)}%</strong>
                 </li>
               ))}
             </ul>
-          </details>
+          </details>\n          {roulette.event === "unstable" && state.move - roulette.lastRolledMove < 2 && (\n            <p className="bomb-warning" role="status">ZONA INSTÁVEL: fileira 5 bloqueada nesta rodada. Nenhuma peça pode entrar ou sair dela.</p>\n          )}
         </>
       ) : (
         <p className="balance-note">
@@ -71,8 +71,7 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
         </p>
       )}
       <p className="balance-note">
-        +1 energia para os dois após cada rodada. Capturas pontuam material; o resultado depende do
-        rei.
+        +1 energia por rodada para ambos, +1 por captura e +1 pelo domínio do centro (d4, d5, e4, e5). Em desvantagem de 5 pontos de material, receba +1 extra por rodada.
       </p>
       {!!state.bombs?.length && (
         <div className="bomb-warning" role="alert">
