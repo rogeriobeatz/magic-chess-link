@@ -1,3 +1,11 @@
+# Histórico de experimento — fases 2.2 e 2.3 (DESATIVADAS)
+
+**Atenção:** as regras descritas neste documento foram revertidas da branch `main` após feedback de jogabilidade. Este arquivo permanece como histórico da experiência, não como documentação das regras atuais.
+
+A versão ativa voltou às regras 2.1: 2 de energia inicial, +1 por captura, Escudo rápido. Congelar consome o turno; sem casas de energia, Sobrecarga do Rei ou eventos caóticos adicionais. O tabuleiro não exibe os círculos especiais.
+
+---
+
 # CHESS LEAGUE · Gameplay 2.3
 
 Implementação nas versões 2.1–2.3 da arena. Motor determinístico: `src/lib/chess.ts`; distribuição de sorteios: `src/lib/new-game.ts`; visual: `src/components/Board3D.tsx`, `src/components/ArenaBalance.tsx` e `src/routes/jogo.$id.tsx`.
