@@ -58,6 +58,7 @@ export type GameState = {
   move: number;
   energy: Record<Color, number>;
   powerUsed: boolean;
+  rescueUsed?: Partial<Record<Color, boolean>>;
   winner: Color | null;
   result?: GameResult;
   log: string[];
@@ -119,7 +120,7 @@ export const POWERS: Record<PowerId, { name: string; cost: number; desc: string;
   teleport: {
     name: "Teleporte",
     cost: 4,
-    desc: "Move uma peça sua, exceto o rei, até 3 casas para um espaço vazio. Não promove peões. Intervalo: 3 rodadas.",
+    desc: "Reposiciona uma peça até 3 casas. Se seu Rei estiver em xeque, também pode teleportá-lo a uma casa segura. Intervalo: 3 rodadas.",
     icon: "✨",
   },
   bolt: {
@@ -166,6 +167,7 @@ export function initialState(
     move: 0,
     energy: { w: 2, b: 2 },
     powerUsed: false,
+    rescueUsed: { w: false, b: false },
     winner: null,
     log: [],
     material: { w: 0, b: 0 },
@@ -322,6 +324,7 @@ export function cloneState(s: GameState): GameState {
     version: 2,
     board,
     energy: { ...s.energy },
+    rescueUsed: { ...s.rescueUsed },
     log: [...s.log],
     material: { ...(s.material ?? { w: 0, b: 0 }) },
     captures: { w: [...(s.captures?.w ?? [])], b: [...(s.captures?.b ?? [])] },
@@ -445,7 +448,7 @@ export function movesFrom(s: GameState, from: number): number[] {
 export function rawPowerTargets(s: GameState, power: PowerId, first?: number): number[] {
   if (power === "teleport" && first !== undefined) {
     const piece = s.board[first];
-    if (!piece || piece.c !== s.turn || piece.t === "k" || isFrozen(piece, s.move)) return [];
+    if (!piece || piece.c !== s.turn || (piece.t === "k" && !isInCheck(s, s.turn)) || isFrozen(piece, s.move)) return [];
     return s.board.flatMap((p, i) =>
       !p &&
       distance(first, i) <= 3 &&
@@ -462,7 +465,7 @@ export function rawPowerTargets(s: GameState, power: PowerId, first?: number): n
     if (power === "freeze")
       return p.c !== s.turn && p.t !== "k" && (p.freezeReady ?? 0) <= s.move ? [i] : [];
     if (power === "teleport")
-      return p.c === s.turn && p.t !== "k" && !isFrozen(p, s.move) ? [i] : [];
+      return p.c === s.turn && (p.t !== "k" || isInCheck(s, s.turn)) && !isFrozen(p, s.move) ? [i] : [];
     if (power === "bolt")
       return p.c !== s.turn &&
         p.t !== "k" &&
@@ -597,6 +600,8 @@ export function positionKey(s: GameState): string {
     s.turn,
     s.energy.w,
     s.energy.b,
+    s.rescueUsed?.w ?? false,
+    s.rescueUsed?.b ?? false,
     ["w", "b"].map((c) =>
       (Object.keys(POWERS) as PowerId[]).map((p) => relative(s.cooldowns?.[c as Color][p])),
     ),
@@ -651,6 +656,14 @@ function finishTurn(s: GameState, context: ActionContext): GameState {
       lastRolledMove: s.move,
     };
     s.log.unshift("Roleta: " + ARENA_EVENTS[s.roulette.event].name + " — válida por 3 rodadas.");
+  }
+  // One emergency recharge per player per match. Only triggers on an actual check,
+  // never on ordinary material loss, so it cannot create persistent snowball bonuses.
+  if (isInCheck(s, s.turn) && !s.rescueUsed?.[s.turn]) {
+    s.rescueUsed ??= {};
+    s.rescueUsed[s.turn] = true;
+    s.energy[s.turn] = Math.min(MAX_ENERGY, s.energy[s.turn] + 3);
+    s.log.unshift(colorName(s.turn) + ": RESGATE! +3 energia para tentar escapar do xeque.");
   }
   const key = positionKey(s);
   s.repetitions![key] = (s.repetitions![key] ?? 0) + 1;
