@@ -571,6 +571,9 @@ function powerDraft(
   s.energy[s.turn] -= powerCost(s0, power);
   s.cooldowns![s.turn][power] = ready;
   if (isInCheck(previewResponse(s), s.turn)) return null;
+  // A quick power must be followed by a legal move; never trap the player mid-turn.
+  if ((power === "shield" || power === "freeze") &&
+      !s.board.some((piece, i) => piece?.c === s.turn && movesFrom(s, i).length > 0)) return null;
   s.powerHistory!.push({
     power,
     color: s.turn,
