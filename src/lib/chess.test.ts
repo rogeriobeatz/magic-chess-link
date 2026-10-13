@@ -20,7 +20,6 @@ function emptyState(): GameState {
 
 describe("Power action economy", () => {
   it.each<[PowerId, number, number | undefined]>([
-    ["freeze", 12, undefined],
     ["teleport", 52, 36],
     ["bolt", 8, undefined],
     ["bomb", 9, undefined],
@@ -64,6 +63,32 @@ describe("Power action economy", () => {
     expect(moved.powerUsed).toBe(false);
     expect(isShielded(moved.board[52]!, moved.move)).toBe(true);
   });
+  it("freeze works as a quick action followed by a normal move", () => {
+    const state = initialState();
+    state.energy.w = 5;
+    const frozen = applyPower(state, "freeze", 12)!;
+    expect(frozen.turn).toBe("w");
+    expect(frozen.powerUsed).toBe(true);
+    expect(frozen.energy.w).toBe(2);
+    const moved = applyMove(frozen, 51, 35)!;
+    expect(moved.turn).toBe("b");
+  });
+  it("awards comeback and center-control energy once per completed round", () => {
+    const state = initialState();
+    state.board[3] = null;
+    state.board[35] = { t: "n", c: "w" };
+    const white = applyMove(state, 52, 44)!;
+    const black = applyMove(white, 12, 20)!;
+    expect(black.energy.w).toBeGreaterThan(black.energy.b);
+  });
+  it("triggers overcharge at round 3 with a deterministic event roll", () => {
+    let state = initialState({ roulette: true, rouletteRoll: 0 });
+    for (const [from, to] of [[52,44],[12,20],[51,43],[11,19],[50,42],[10,18]]) {
+      state = applyMove(state, from!, to!, {rouletteRoll: 4})!;
+    }
+    expect(state.roulette?.event).toBe("overcharge");
+    expect(state.energy.w).toBeGreaterThanOrEqual(5);
+  });
   it("shield and freeze last through the enemy turn and expire on return", () => {
     const state = initialState();
     state.energy.w = 10;
@@ -74,8 +99,10 @@ describe("Power action economy", () => {
     expect(isShielded(returned.board[52]!, returned.move)).toBe(false);
     const frozen = applyPower(state, "freeze", 12)!;
     expect(isFrozen(frozen.board[12]!, frozen.move)).toBe(true);
-    expect(applyMove(frozen, 12, 28)).toBeNull();
-    const thawed = applyMove(frozen, 11, 27)!;
+    expect(applyPower(frozen, "shield", 52)).toBeNull();
+    const afterFreezeMove = applyMove(frozen, 51, 35)!;
+    expect(applyMove(afterFreezeMove, 12, 28)).toBeNull();
+    const thawed = applyMove(afterFreezeMove, 11, 27)!;
     expect(isFrozen(thawed.board[12]!, thawed.move)).toBe(false);
   });
 
