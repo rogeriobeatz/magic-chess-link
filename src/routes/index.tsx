@@ -1,49 +1,32 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowRight, Bot, Check, Copy, Crown, Gamepad2, MessageCircle, Radio, Shield, Sparkles, Swords, Timer, Zap } from "lucide-react";
+import { ArrowRight, Bot, Check, Copy, Crown, Flame, Gamepad2, LockKeyhole, Radio, Shield, Sparkles, Swords, Trophy, UserRound, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { POWERS, type PowerId } from "@/lib/chess";
 import { newGameState } from "@/lib/new-game";
 import { soloGameId, type Difficulty } from "@/lib/computer";
-import arenaBg from "../../img-refs/BG - Arena Cósmica de Xadrez Neon.png";
-import arenaArt from "../../img-refs/Arena Neon de Xadrez Galáctico.png";
 import logo from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
-import powerIcons from "@/assets/power-icons.png";
+import arenaArt from "../../img-refs/Arena Neon de Xadrez Galáctico.png";
+import arenaBg from "../../img-refs/BG - Arena Cósmica de Xadrez Neon.png";
+import "./../styles/hall.css";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Chess League | Xadrez 2.0 com poderes — Arena PvP e IA" },
-      { name: "description", content: "Entre na arena Chess League: xadrez 3D competitivo com cinco poderes especiais, duelos por link, partidas de 5 minutos por jogador e treino contra IA." },
-      { property: "og:title", content: "Chess League — Xadrez 2.0 com poderes nucleares" },
-      { property: "og:description", content: "Crie sua sala, desafie um rival e domine uma arena de xadrez 3D com poderes." },
-      { property: "og:type", content: "website" },
-      { property: "og:locale", content: "pt_BR" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
-  component: Index,
+  head: () => ({ meta: [
+    { title: "Chess League — Escolha sua arena" },
+    { name: "description", content: "Seu novo hall de xadrez: partidas com poderes, treino com IA e futuras arenas clássica, ranqueada e CAOS." },
+    { property: "og:title", content: "Chess League — Entre na arena" },
+    { property: "og:description", content: "Escolha seu modo, pratique com IA e desafie seus amigos." },
+  ]}),
+  component: Hall,
 });
 
-const arsenal: { id: PowerId; headline: string; note: string }[] = [
-  { id: "bolt", headline: "ATAQUE CIRÚRGICO", note: "Elimine uma peça inimiga desprotegida a até 3 casas. Rei e dama são imunes." },
-  { id: "bomb", headline: "ÁREA DE PERIGO", note: "Marque até 2 alvos numa área 3×3. Detona após a resposta rival." },
-  { id: "freeze", headline: "CONTROLE TOTAL", note: "Imobilize uma peça rival durante a próxima vez dela." },
-  { id: "teleport", headline: "MUDE AS REGRAS DO ESPAÇO", note: "Reposicione uma peça aliada em uma casa livre a até 3 casas." },
-  { id: "shield", headline: "DEFESA EXTREMA", note: "Proteja uma peça aliada na resposta do adversário. Não vale para o Rei." },
-];
+const difficulties: Record<Difficulty, string> = { easy: "Recruta", medium: "Tático", hard: "Mestre" };
 
-const labels: Record<Difficulty, string> = { easy: "Fácil", medium: "Médio", hard: "Mestre" };
-
-function Index() {
+function Hall() {
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
   const [roomLink, setRoomLink] = useState("");
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
-  const [roulette, setRoulette] = useState(true);
-  const [activePower, setActivePower] = useState<PowerId>("bolt");
-  const selected = arsenal.find(p => p.id === activePower)!;
 
   async function copyRoom(url: string) {
     try {
@@ -51,71 +34,140 @@ function Index() {
       setCopied(true);
     } catch {
       setCopied(false);
-      setError("A sala foi criada, mas o navegador não permitiu copiar automaticamente. Copie o endereço abaixo.");
+      setError("A sala foi criada, mas não foi possível copiar automaticamente. Use o link exibido abaixo.");
     }
   }
+
   async function createRoom() {
     if (creating) return;
-    setCreating(true); setError(""); setCopied(false);
+    setCreating(true);
+    setError("");
+    setCopied(false);
     try {
       const token = crypto.randomUUID();
-      const { data, error: createError } = await supabase.from("games")
-        .insert({ white_token: token, state: newGameState({ roulette }) as never })
+      // PvP casual uses the same balanced powers as the future competitive mode.
+      // A room invitation is not ranked matchmaking and never awards rank points.
+      const { data, error: failure } = await supabase.from("games")
+        .insert({ white_token: token, state: newGameState({ roulette: false }) as never })
         .select("id").single();
-      if (createError || !data) throw new Error("create-room");
+      if (failure || !data) throw new Error("room-create-failed");
       localStorage.setItem("xadrez-token-" + data.id, token);
       const url = new URL("/jogo/" + data.id, window.location.origin).href;
       setRoomLink(url);
       await copyRoom(url);
-      // Keep the share URL visible so a created room can actually be distributed.
     } catch {
-      setError("Não foi possível criar sua sala. Tente novamente.");
-    } finally { setCreating(false); }
+      setError("Não foi possível criar a sala. Confira sua conexão e tente novamente.");
+    } finally {
+      setCreating(false);
+    }
   }
 
-  return <main className="league-lp" id="inicio">
-    <div className="league-bg" aria-hidden="true" style={{ backgroundImage: `linear-gradient(180deg,#07091399,#070913 94%),url("${arenaBg}")` }} />
-    <header className="league-nav">
-      <a className="league-logo" href="#inicio" aria-label="Chess League, início"><img src={logo} alt="Chess League" width={2172} height={724} fetchPriority="high" /></a>
-      <nav aria-label="Navegação principal"><a href="#arsenal">Arsenal</a><a href="#regras">Regras</a><a href="#como-jogar">Como jogar</a></nav>
-      <a href="#arena" className="league-nav-cta"><Gamepad2 size={17} aria-hidden="true" /> JOGAR AGORA</a>
-    </header>
+  return (
+    <main className="hall" id="hall">
+      <div className="hall-container">
+        <header className="hall-nav">
+          <a className="hall-brand" href="#hall" aria-label="Chess League — Hall principal">
+            <img src={logo} alt="Chess League" width={2172} height={724} />
+          </a>
+          <nav className="hall-nav-links" aria-label="Navegação principal">
+            <a href="#arenas">ARENAS</a>
+            <a href="#treinamento">TREINAMENTO</a>
+            <a href="#competitivo">COMPETITIVO</a>
+          </nav>
+          <div className="hall-identity" aria-label="Perfil de visitante">
+            <span>VISITANTE</span><span className="hall-avatar"><UserRound size={19}/></span>
+          </div>
+        </header>
 
-    <section className="league-hero" id="arena" aria-labelledby="league-hero-title">
-      <div className="league-hero-content">
-        <span className="league-kicker"><span className="league-live-dot" /> BEM-VINDO À PRÓXIMA GERAÇÃO DO XADREZ</span>
-        <h1 id="league-hero-title">XADREZ <em>2.0:</em><br />ESTRATÉGIA COM <span>PODERES NUCLEARES.</span></h1>
-        <p>O tabuleiro é clássico. O confronto, não. Acumule energia, ative habilidades devastadoras e surpreenda quem achava que já sabia jogar.</p>
-        <div className="league-actions">
-          <button className="league-action league-action-primary" type="button" onClick={() => void createRoom()} disabled={creating}><Swords aria-hidden="true" />{creating ? "CRIANDO SALA..." : "CRIAR SALA PvP"}<span>GERAR LINK <ArrowRight size={16} /></span></button>
-          <div className="league-ai-action"><label htmlFor="league-difficulty">TREINAR CONTRA IA</label><div><select id="league-difficulty" value={difficulty} onChange={e => setDifficulty(e.target.value as Difficulty)}>{(Object.keys(labels) as Difficulty[]).map(key => <option key={key} value={key}>{labels[key]}</option>)}</select><Link to="/jogo/$id" params={{ id: soloGameId(difficulty, roulette) }} aria-label={`Treinar contra IA: ${labels[difficulty]}`}><Bot size={19}/><ArrowRight size={18}/></Link></div></div>
-        </div>
-        <Link className="league-try" to="/jogo/$id" params={{ id: "treino" }}><Gamepad2 size={17}/> VER TABULEIRO 3D <ArrowRight size={14}/></Link>
-        <label className="league-roulette"><input type="checkbox" checked={roulette} onChange={e => setRoulette(e.target.checked)}/><span>Roleta de eventos ativada <small>Alterações táticas a cada 3 rodadas · PvP e IA</small></span></label>
-        {roomLink && <div className="league-room" role="status"><strong><Check size={16}/> SALA PRONTA · LINK {copied ? "COPIADO!" : "GERADO"}</strong><div><input aria-label="Link da sala" value={roomLink} readOnly onFocus={e => e.currentTarget.select()}/><button type="button" onClick={() => void copyRoom(roomLink)}><Copy size={16}/> COPIAR</button></div><Link to="/jogo/$id" params={{id: roomLink.split("/").pop()!}}>ENTRAR NA MINHA SALA <ArrowRight size={16}/></Link></div>}
-        {error && <p className="league-error" role="alert">{error}</p>}
-        <div className="league-hero-metrics"><span><Zap size={17}/> 05 PODERES</span><span><Timer size={17}/> 5 MIN / JOGADOR</span><span><Swords size={17}/> PvP + IA</span></div>
+        <section className="hall-intro" aria-labelledby="hall-title">
+          <div>
+            <span className="hall-eyebrow">◆ CENTRAL DE COMBATE / CHESS LEAGUE</span>
+            <h1 id="hall-title">ESCOLHA SUA <em>ARENA.</em></h1>
+            <p>Quatro caminhos. Uma liga. Estratégia para todos os estilos de jogo.</p>
+          </div>
+          <div className="hall-season" id="competitivo"><Trophy size={28} /><span>SEASON 00<small>PRÉ-TEMPORADA</small></span></div>
+        </section>
+
+        <section className="hall-grid" id="arenas" aria-label="Modalidades Chess League">
+          <article className="hall-card hall-feature">
+            <img className="hall-card-img" src={arenaArt} alt="" />
+            <div className="hall-card-inner">
+              <span className="hall-mode-index"><span className="hall-dot"/> ARENA 01 // O MODO PRINCIPAL</span>
+              <h2>ARENA<br/><span>COMPETITIVA.</span></h2>
+              <p>O xadrez ganha uma nova camada de estratégia. Escudo, Raio, Teleporte, Congelamento e Bomba transformam cada confronto.</p>
+              <div className="hall-card-bottom">
+                <div className="hall-chipline">
+                  <span className="hall-chip">05 PODERES</span>
+                  <span className="hall-chip">PvP 1 × 1</span>
+                  <span className="hall-chip">SEM ROLETA</span>
+                </div>
+                <div className="hall-actions">
+                  <button className="hall-btn" type="button" onClick={() => void createRoom()} disabled={creating}>
+                    <Swords size={18}/>{creating ? "CRIANDO SALA..." : "JOGAR COM AMIGO"}<ArrowRight size={16}/>
+                  </button>
+                  <a className="hall-btn hall-btn-secondary" href="#treinamento"><Bot size={18}/> TREINAR COM IA</a>
+                </div>
+                <p style={{marginTop:16,fontSize:11,color:"#8499b8"}}><LockKeyhole size={12} style={{display:"inline",verticalAlign:"middle",marginRight:6}}/>PARTIDAS RANQUEADAS E PATENTES EM DESENVOLVIMENTO</p>
+              </div>
+            </div>
+          </article>
+          <article className="hall-card hall-side hall-classic">
+            <img className="hall-card-img" src={arenaBg} alt="" />
+            <div className="hall-card-inner">
+              <span className="hall-mode-index"><Shield size={14}/> ARENA 02 // ORIGENS</span>
+              <h2>XADREZ<br/>CLÁSSICO.</h2>
+              <p>Sem poderes, sem vantagens extras. Apenas você, seu adversário e o tabuleiro.</p>
+              <div className="hall-card-bottom"><span className="hall-status"><LockKeyhole size={12}/> EM DESENVOLVIMENTO</span></div>
+            </div>
+          </article>
+          <article className="hall-card hall-side hall-chaos">
+            <img className="hall-card-img" src={arenaArt} alt="" />
+            <div className="hall-card-inner">
+              <span className="hall-mode-index"><Flame size={14}/> ARENA 03 // SEM LIMITES</span>
+              <h2>MODO<br/>CAOS.</h2>
+              <p>Cartas absurdas, mutações e duelos frenéticos. Prepare-se para esquecer tudo que conhece.</p>
+              <div className="hall-card-bottom"><span className="hall-status"><Sparkles size={12}/> EM DESENVOLVIMENTO</span></div>
+            </div>
+          </article>
+        </section>
+
+        {roomLink && (
+          <div className="hall-room" role="status">
+            <Check size={23} color="#00f0ff"/>
+            <label htmlFor="hall-room-link">SALA CRIADA · {copied ? "LINK COPIADO" : "CONVIDE SEU ADVERSÁRIO"}</label>
+            <input id="hall-room-link" value={roomLink} readOnly onFocus={e=>e.currentTarget.select()}/>
+            <button className="hall-btn hall-btn-secondary" type="button" onClick={()=>void copyRoom(roomLink)}><Copy size={16}/> COPIAR</button>
+            <Link className="hall-btn" to="/jogo/$id" params={{id:roomLink.split("/").pop()!}}>ENTRAR NA SALA <ArrowRight size={15}/></Link>
+          </div>
+        )}
+        {error && <p className="hall-alert" role="alert">{error}</p>}
+
+        <section className="hall-lower" id="treinamento">
+          <div className="hall-training">
+            <span className="hall-training-icon"><Bot size={29}/></span>
+            <div className="hall-training-content">
+              <span className="hall-overline">CAMPO DE TREINAMENTO</span>
+              <h3>AFIE SUAS JOGADAS COM A IA</h3>
+              <p>Aprenda os poderes e pratique as regras da arena competitiva. Sem perder pontos.</p>
+            </div>
+            <div className="hall-training-control">
+              <label htmlFor="hall-difficulty" className="hall-overline">DIFICULDADE</label>
+              <select id="hall-difficulty" value={difficulty} onChange={e=>setDifficulty(e.target.value as Difficulty)}>
+                {(Object.keys(difficulties) as Difficulty[]).map(key=><option key={key} value={key}>{difficulties[key]}</option>)}
+              </select>
+              <Link className="hall-btn" to="/jogo/$id" params={{id:soloGameId(difficulty,false)}}><Gamepad2 size={17}/> TREINAR <ArrowRight size={15}/></Link>
+            </div>
+          </div>
+          <div className="hall-news">
+            <Crown size={37}/>
+            <div><span className="hall-overline">A PRÓXIMA EVOLUÇÃO</span><h3>RANQUES, INSÍGNIAS E TEMPORADAS</h3><p>As patentes competitivas chegarão à liga. Por enquanto, desafie amigos ou domine os poderes contra a IA.</p></div>
+          </div>
+        </section>
+        <footer className="hall-footer">
+          <span>© CHESS LEAGUE · ARENA DE XADREZ 2.0</span>
+          <span><Radio size={12} style={{display:"inline",verticalAlign:"middle",marginRight:6}}/>HALL ONLINE · MODO PODERES DISPONÍVEL</span>
+        </footer>
       </div>
-      <figure className="league-preview"><div className="league-preview-top"><span><Radio size={16} aria-hidden="true"/> ARENA // 01</span><span className="league-live"><span className="league-live-dot"/> ARENA PRONTA</span></div><div className="league-preview-picture"><img src={arenaArt} alt="Prévia ilustrativa do tabuleiro 3D da Chess League com peças neon ciano e magenta" width={1672} height={941} fetchPriority="high"/><div className="league-preview-scan" aria-hidden="true"/></div><figcaption><strong>BRANCAS <span>VS</span> PRETAS</strong><small>UMA ARENA. DOIS LADOS. INFINITAS REVIRAVOLTAS.</small></figcaption></figure>
-    </section>
-
-    <div className="league-ticker" aria-label="Recursos"><span>ESTRATÉGIA SEM LIMITES</span><Zap/><span>5 PODERES ESPECIAIS</span><Zap/><span>DUELAR POR LINK</span><Zap/><span>DOMINE A ARENA</span></div>
-
-    <section className="league-section" id="arsenal" aria-labelledby="arsenal-title"><div className="league-section-head"><div><span className="league-kicker">01 // ESCOLHA SUA ARMA</span><h2 id="arsenal-title">ARSENAL <em>DA LIGA.</em></h2></div><p>Cinco poderes. Um tabuleiro. Cada escolha pode virar o jogo.</p></div>
-      <div className="league-power-grid">{arsenal.map((entry, i) => <button type="button" key={entry.id} aria-pressed={activePower===entry.id} onMouseEnter={() => setActivePower(entry.id)} onFocus={() => setActivePower(entry.id)} onClick={() => setActivePower(entry.id)} className={"league-power "+(activePower===entry.id?"is-selected":"")} data-power={entry.id}><span className="league-power-index">0{i+1} // {entry.headline}</span><span className="league-power-image"><img src={powerIcons} alt="" loading="lazy" width={1536} height={512} style={{transform:`translateX(-${["shield","freeze","teleport","bolt","bomb"].indexOf(entry.id)*20}%)`}}/></span><strong>{POWERS[entry.id].name.toUpperCase()}</strong><span className="league-power-energy"><Zap size={14}/> {POWERS[entry.id].cost} ENERGIA</span></button>)}</div>
-      <div className="league-power-detail" aria-live="polite"><div><span>ARSENAL SELECIONADO // {selected.headline}</span><h3>{POWERS[activePower].name.toUpperCase()}</h3><p>{selected.note}</p></div><span className="league-energy-value"><Zap size={26}/>{POWERS[activePower].cost}<small>ENERGIA</small></span></div>
-    </section>
-
-    <section className="league-section" id="regras" aria-labelledby="rules-title"><div className="league-section-head"><div><span className="league-kicker">02 // UM NOVO CONFRONTO</span><h2 id="rules-title">O CLÁSSICO EVOLUIU. <em>E MUITO.</em></h2></div></div>
-      <div className="league-versus"><div className="league-versus-classic"><span>TRADICIONAL</span><h3>XADREZ CLÁSSICO</h3><ul><li>Somente movimentos tradicionais</li><li>Sem poderes especiais</li><li>Empates e partidas longas são possíveis</li></ul></div><div className="league-versus-mark">VS</div><div className="league-versus-new"><span>EVOLUÇÃO 2.0</span><h3>CHESS LEAGUE</h3><ul><li>Energia acumulada a cada rodada</li><li>5 poderes com recarga tática</li><li>5 minutos por jogador + xeque-mate</li><li>Entre com um apelido, sem cadastro</li></ul></div></div>
-      <p className="league-rules-note"><Shield size={16}/> O Rei não pode ser capturado diretamente: a vitória acontece por xeque-mate ou tempo esgotado. Empates ainda são possíveis.</p>
-    </section>
-
-    <section className="league-section" id="como-jogar" aria-labelledby="steps-title"><div className="league-section-head"><div><span className="league-kicker">03 // CONVITE INSTANTÂNEO</span><h2 id="steps-title">DUELO EM <em>3 PASSOS.</em></h2></div><p>Sem instalação. Só estratégia e uma boa rivalidade.</p></div><ol className="league-steps"><li><b>01</b><Swords/><h3>CRIE A SALA</h3><p>Um clique gera o link privado da partida.</p></li><li><b>02</b><Copy/><h3>CHAME SEU RIVAL</h3><p>Compartilhe no WhatsApp, Discord ou onde preferir.</p></li><li><b>03</b><Gamepad2/><h3>ENTRE NA ARENA</h3><p>Os dois jogam pelo navegador, em tempo real.</p></li></ol></section>
-
-    <section className="league-chat-section"><div><span className="league-kicker">NOVIDADE // QUICK CHAT</span><h2>PROVOQUE. ELOGIE. <em>VENÇA.</em></h2><p>Uma reação rápida vale mais que mil palavras. Sem digitação, sem perder o lance.</p></div><div className="league-chat-pills" aria-label="Exemplos de reações rápidas"><span>Calculado.</span><span>Ops...</span><span>Belo lance!</span><span>GG!</span><MessageCircle aria-hidden="true"/></div></section>
-
-    <section className="league-bottom"><Crown size={38} aria-hidden="true"/><div><span className="league-kicker">A ARENA ESTÁ PRONTA</span><h2>O PRÓXIMO CAMPEÃO <em>PODE SER VOCÊ.</em></h2></div><a href="#arena" className="league-action league-action-primary">COMEÇAR AGORA <ArrowRight size={20}/></a></section>
-    <footer className="league-footer"><a href="#inicio" aria-label="Voltar ao início"><img src={logo} alt="Chess League" width={2172} height={724} loading="lazy"/></a><span>© CHESS LEAGUE · XADREZ 2.0</span><a href="#arena">JOGAR AGORA <ArrowRight size={15}/></a></footer>
-  </main>;
+    </main>
+  );
 }
