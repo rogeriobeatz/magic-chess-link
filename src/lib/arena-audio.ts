@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { GameState } from "@/lib/chess";
 import moveSfx from "../audio/movendo peça/Chess Piece Sliding Movement 1/Chess Piece Sliding Movement 1.mp3";
-import placeSfx from "../audio/colocando peça/OBJECT_TABLE_GAME_Chess_Piece_Place_01.wav";
 import captureSfx from "../audio/colocando peça 2/OBJECT_TABLE_GAME_Chess_Piece_Place_04.wav";
 import laserSfx from "../audio/tiros de lazer.wav";
 import shieldSfx from "../audio/Sparkling Magic Elixir.wav";
