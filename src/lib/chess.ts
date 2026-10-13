@@ -27,7 +27,7 @@ export type Fx = {
 };
 export type GameResult =
   "checkmate" | "stalemate" | "repetition" | "insufficient-material" | "timeout";
-export type ArenaEvent = "stable" | "protection" | "winter" | "distortion";
+export type ArenaEvent = "stable" | "protection" | "winter" | "distortion" | "overcharge" | "unstable" | "pawn-fury";
 export type Roulette = {
   enabled: boolean;
   event: ArenaEvent;
@@ -76,6 +76,7 @@ export type GameState = {
   powerHistory?: PowerUse[];
   lastDecision?: string;
   rematch?: { gameId: string; requestedBy: Color; accepted: boolean };
+  unstableRank?: number;
 };
 export type ActionContext = { now?: number; rouletteRoll?: number; bombTargets?: number[] };
 export const MAX_ENERGY = 10;
@@ -97,11 +98,10 @@ export const ARENA_EVENTS: Record<
     desc: "Congelar custa 1 energia a menos para ambos.",
     power: "freeze",
   },
-  distortion: {
-    name: "Distorção",
-    desc: "Teleporte custa 1 energia a menos para ambos.",
-    power: "teleport",
-  },
+  distortion: { name: "Distorção", desc: "Teleporte custa 1 energia a menos para ambos.", power: "teleport" },
+  overcharge: { name: "Supercarga", desc: "Ambos recebem +3 de energia.", power: null },
+  unstable: { name: "Zona instável", desc: "Uma fileira fica bloqueada durante 1 rodada.", power: null },
+  "pawn-fury": { name: "Fúria dos Peões", desc: "Peões podem avançar 2 casas, com caminho livre.", power: null },
 };
 export const POWERS: Record<PowerId, { name: string; cost: number; desc: string; icon: string }> = {
   shield: {
@@ -113,7 +113,7 @@ export const POWERS: Record<PowerId, { name: string; cost: number; desc: string;
   freeze: {
     name: "Congelar",
     cost: 3,
-    desc: "Bloqueia movimento e ameaça de uma peça inimiga, exceto o rei, na próxima vez dela. Intervalo: 3 rodadas.",
+    desc: "Ação rápida: imobiliza peça inimiga (exceto o rei) na próxima vez dela; depois mova uma peça. Intervalo: 3 rodadas.",
     icon: "❄️",
   },
   teleport: {
@@ -186,8 +186,8 @@ export function initialState(
   return state;
 }
 function eventForRoll(roll: number): ArenaEvent {
-  const events: ArenaEvent[] = ["stable", "protection", "winter", "distortion"];
-  return events[Number.isInteger(roll) && roll >= 0 && roll < 4 ? roll : 0]!;
+  const events: ArenaEvent[] = ["stable", "protection", "winter", "distortion", "overcharge", "unstable", "pawn-fury"];
+  return events[Number.isInteger(roll) && roll >= 0 && roll < events.length ? roll : 0]!;
 }
 const rc = (i: number) => [Math.floor(i / 8), i % 8] as const;
 const idx = (r: number, c: number) => r * 8 + c;
@@ -238,7 +238,7 @@ function pseudoMoves(s: GameState, from: number): number[] {
       const start = p.c === "w" ? 6 : 1;
       if (inside(r + d, c) && !s.board[idx(r + d, c)]) {
         out.push(idx(r + d, c));
-        if (r === start && !s.board[idx(r + 2 * d, c)]) out.push(idx(r + 2 * d, c));
+        if ((r === start || (s.roulette?.enabled && s.roulette.event === "pawn-fury")) && inside(r + 2 * d, c) && !s.board[idx(r + 2 * d, c)]) out.push(idx(r + 2 * d, c));
       }
       for (const dc of [-1, 1]) {
         if (!inside(r + d, c + dc)) continue;
@@ -436,6 +436,8 @@ export function movesFrom(s: GameState, from: number): number[] {
   const p = s.board[from];
   if (!p) return [];
   return pseudoMoves(s, from).filter((to) => {
+    if (s.roulette?.enabled && s.roulette.event === "unstable" && s.unstableRank !== undefined &&
+      (Math.floor(from / 8) === s.unstableRank || Math.floor(to / 8) === s.unstableRank)) return false;
     const next = cloneState(s);
     next.board[to] = next.board[from]!;
     next.board[from] = null;
@@ -576,7 +578,7 @@ function powerDraft(
     materialAfter: materialAdvantage(s, s.turn),
   });
   s.lastDecision = entry;
-  s.log.unshift(entry + (power === "shield" ? " — ação rápida; mova uma peça" : " — turno encerrado"));
+  s.log.unshift(entry + (power === "shield" || power === "freeze" ? " — ação rápida; mova uma peça" : " — turno encerrado"));
   return s;
 }
 export function positionKey(s: GameState): string {
@@ -597,6 +599,8 @@ export function positionKey(s: GameState): string {
     s.turn,
     s.energy.w,
     s.energy.b,
+    s.powerUsed,
+    s.unstableRank ?? null,
     ["w", "b"].map((c) =>
       (Object.keys(POWERS) as PowerId[]).map((p) => relative(s.cooldowns?.[c as Color][p])),
     ),
@@ -640,9 +644,16 @@ function finishTurn(s: GameState, context: ActionContext): GameState {
   s.powerUsed = false;
   resolveBombs(s, true);
   // Both colors receive income together: each starts its next own turn with the same base budget.
-  if (s.move % 2 === 0)
-    for (const color of ["w", "b"] as Color[])
+  if (s.move % 2 === 0) {
+    for (const color of ["w", "b"] as Color[]) {
       s.energy[color] = Math.min(MAX_ENERGY, s.energy[color] + 1);
+      // Comeback: the player behind by 5+ material gets 1 extra energy.
+      if (materialAdvantage(s, color) <= -5) s.energy[color] = Math.min(MAX_ENERGY, s.energy[color] + 1);
+      // Central control rewards occupied squares after a complete round; +1 maximum per player.
+      const centers = [27, 28, 35, 36];
+      if (centers.some(i => s.board[i]?.c === color)) s.energy[color] = Math.min(MAX_ENERGY, s.energy[color] + 1);
+    }
+  }
   if (s.roulette?.enabled && s.move % 6 === 0) {
     s.roulette = {
       enabled: true,
@@ -650,7 +661,11 @@ function finishTurn(s: GameState, context: ActionContext): GameState {
       cycle: s.roulette.cycle + 1,
       lastRolledMove: s.move,
     };
-    s.log.unshift("Roleta: " + ARENA_EVENTS[s.roulette.event].name + " — válida por 3 rodadas.");
+    if (s.roulette.event === "overcharge")
+      for (const color of ["w", "b"] as Color[]) s.energy[color] = Math.min(MAX_ENERGY, s.energy[color] + 3);
+    // Fixed rank chosen from the deterministic roll, visible for the full event.
+    s.unstableRank = s.roulette.event === "unstable" ? 3 : undefined;
+    s.log.unshift("Roleta: " + ARENA_EVENTS[s.roulette.event].name + " — " + ARENA_EVENTS[s.roulette.event].desc);
   }
   const key = positionKey(s);
   s.repetitions![key] = (s.repetitions![key] ?? 0) + 1;
@@ -750,7 +765,7 @@ export function applyPower(
   const s = powerDraft(s0, power, target, dest, context);
   if (!s) return null;
   chargeClock(s, context);
-  if (power === "shield") {
+  if (power === "shield" || power === "freeze") {
     s.powerUsed = true;
     s.revision = (s.revision ?? 0) + 1;
     return s;
