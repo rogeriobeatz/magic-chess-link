@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Volume2, VolumeX } from "lucide-react";
 import type { Color } from "@/lib/chess";
+import { playFileCue } from "@/lib/arena-audio";
 
 export const QUICK_PHRASES = [
   { title: "Respeito", entries: ["Belo lance!", "Calculado.", "GG!"] },
@@ -20,6 +21,7 @@ export function validReaction(value: unknown): value is ChatReaction {
     && typeof p.nonce === "string" && p.nonce.length <= 80;
 }
 export function arcadeBeep() {
+  if (playFileCue("chat")) return;
   try {
     const context = new AudioContext();
     const oscillator = context.createOscillator();
