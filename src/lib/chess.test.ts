@@ -18,9 +18,8 @@ function emptyState(): GameState {
   return { ...initialState(), board: Array(64).fill(null), energy: { w: 0, b: 0 } };
 }
 
-describe("Powers consume the whole turn", () => {
+describe("Power action economy", () => {
   it.each<[PowerId, number, number | undefined]>([
-    ["shield", 52, undefined],
     ["freeze", 12, undefined],
     ["teleport", 52, 36],
     ["bolt", 8, undefined],
@@ -44,12 +43,34 @@ describe("Powers consume the whole turn", () => {
     expect(JSON.stringify(state)).toBe(before);
   });
 
+  it("starts with 2 energy and grants bonus on capture", () => {
+    const state = initialState();
+    expect(state.energy).toEqual({ w: 2, b: 2 });
+    state.board[40] = { t: "p", c: "b" };
+    const next = applyMove(state, 48, 40)!;
+    expect(next.energy.w).toBe(3);
+  });
+  it("shield is a quick action once per turn, then a piece moves", () => {
+    const state = initialState();
+    const shielded = applyPower(state, "shield", 52)!;
+    expect(shielded.turn).toBe("w");
+    expect(shielded.move).toBe(0);
+    expect(shielded.powerUsed).toBe(true);
+    expect(shielded.energy.w).toBe(0);
+    expect(applyPower(shielded, "freeze", 12)).toBeNull();
+    const moved = applyMove(shielded, 51, 35)!;
+    expect(moved.turn).toBe("b");
+    expect(moved.move).toBe(1);
+    expect(moved.powerUsed).toBe(false);
+    expect(isShielded(moved.board[52]!, moved.move)).toBe(true);
+  });
   it("shield and freeze last through the enemy turn and expire on return", () => {
     const state = initialState();
     state.energy.w = 10;
     const shielded = applyPower(state, "shield", 52)!;
     expect(isShielded(shielded.board[52]!, shielded.move)).toBe(true);
-    const returned = applyMove(shielded, 11, 27)!;
+    const afterShieldMove = applyMove(shielded, 51, 35)!;
+    const returned = applyMove(afterShieldMove, 11, 27)!;
     expect(isShielded(returned.board[52]!, returned.move)).toBe(false);
     const frozen = applyPower(state, "freeze", 12)!;
     expect(isFrozen(frozen.board[12]!, frozen.move)).toBe(true);
