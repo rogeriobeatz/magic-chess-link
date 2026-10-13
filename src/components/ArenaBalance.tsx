@@ -65,7 +65,10 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
                 </li>
               ))}
             </ul>
-          </details>\n          {roulette.event === "unstable" && state.move - roulette.lastRolledMove < 2 && (\n            <p className="bomb-warning" role="status">ZONA INSTÁVEL: fileira 5 bloqueada nesta rodada. Nenhuma peça pode entrar ou sair dela.</p>\n          )}
+          </details>
+          {roulette.event === "unstable" && state.move - roulette.lastRolledMove < 2 && (
+            <p className="bomb-warning" role="status">ZONA INSTÁVEL: fileira 5 bloqueada nesta rodada. Nenhuma peça pode entrar ou sair dela.</p>
+          )}
         </>
       ) : (
         <p className="balance-note">
