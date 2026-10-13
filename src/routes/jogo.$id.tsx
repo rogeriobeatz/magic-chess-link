@@ -867,7 +867,7 @@ function GamePage() {
                   <small>/{MAX_ENERGY}</small>
                 </span>
               </div>
-              <p className="arena-rack-rule">Escudo é ação rápida: use e depois mova uma peça. Os demais poderes encerram a vez.</p>
+              <p className="arena-rack-rule">Escudo e Congelar são ações rápidas: use um deles e depois mova uma peça. Teleporte, Raio e Bomba encerram a vez.</p>
               <div className="arena-power-list">
                 {(Object.keys(POWERS) as PowerId[]).map((k, index) => {
                   const pw = POWERS[k],
