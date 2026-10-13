@@ -825,7 +825,7 @@ export default function Board3D({
               </mesh>
             )}
             {hl && (
-              <mesh position={[0, 0.02, 0] rotation={[-Math.PI / 2, 0, 0]}>
+              <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 {state.board[i] ? (
                   <ringGeometry args={[0.38, 0.47, 32]} />
                 ) : (
