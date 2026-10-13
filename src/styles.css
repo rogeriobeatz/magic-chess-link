@@ -927,3 +927,11 @@
   .game-shell .avatar { width: 24px; height: 24px; font-size: 18px; margin-left: 0; }
   .game-shell .match-clock { font-size: 13px; min-width: 40px; padding: 2px 4px; }
 }
+
+/* iPhone home-screen PWA: fit fullscreen safe areas without clipping the HUD. */
+html { background-color: #070913; }
+body { min-height: 100dvh; overscroll-behavior-y: none; }
+@supports (padding: env(safe-area-inset-top)) {
+  .hall-nav, .arena-topbar, .chaos-arena-topbar { padding-top: max(10px, env(safe-area-inset-top)); }
+  .hall-footer, .arena-screen, .chaos-reuse { padding-bottom: env(safe-area-inset-bottom); }
+}
