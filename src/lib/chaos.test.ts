@@ -7,17 +7,17 @@ describe("Chaos PvP simultaneous rules",()=>{
  });
  it("lets both sides move without taking turns, respecting per-piece cooldown",()=>{
   const s=startChaos(initialChaos(),1000);
-  const a=moveChaos(s,"w","w-pawn-4",36,1100)!;
+  const a=moveChaos(s,"w","w-pawn-3",43,1100)!;
   expect(a).not.toBeNull();
   const b=moveChaos(a,"b","b-pawn-4",28,1200)!;
   expect(b).not.toBeNull();
-  expect(moveChaos(b,"w","w-pawn-4",28,1300)).toBeNull();
-  expect(movesChaos(b,b.pieces.find(p=>p.id==="w-pawn-4")!,2800).length).toBeGreaterThan(0);
+  expect(moveChaos(b,"w","w-pawn-3",35,1300)).toBeNull();
+  expect(movesChaos(b,b.pieces.find(p=>p.id==="w-pawn-3")!,2800).length).toBeGreaterThan(0);
  });
  it("rejects moving opponent pieces and impossible jumps",()=>{
   const s=startChaos(initialChaos(),1000);
   expect(moveChaos(s,"w","b-pawn-0",16,1001)).toBeNull();
-  expect(moveChaos(s,"w","w-rook-0",32,1001)).toBeNull();
+  expect(moveChaos(s,"w","w-back-0",32,1001)).toBeNull();
  });
  it("consumes special cards once and gives bounded buffs",()=>{
   const s=startChaos(initialChaos(),1000);
