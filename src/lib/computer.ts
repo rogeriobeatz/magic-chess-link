@@ -188,7 +188,7 @@ export function chooseComputerAction(
     const replies = candidates(position).slice(0, config.width);
     if (!replies.length) return evaluate(position, perspective);
     for (const reply of replies) {
-      const score = search(reply.state, depth - 1, alpha, beta);
+      const score = search(reply.state, depth - (reply.state.turn !== position.turn ? 1 : 0), alpha, beta);
       best = maximize ? Math.max(best, score) : Math.min(best, score);
       if (maximize) alpha = Math.max(alpha, best);
       else beta = Math.min(beta, best);
