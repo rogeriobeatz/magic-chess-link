@@ -12,6 +12,7 @@ import {
   type Fx,
   type GameState,
   type PType,
+  materialAdvantage,
 } from "@/lib/chess";
 
 const token = (name: string) =>
@@ -130,11 +131,13 @@ function PieceMesh({
   c,
   frozen,
   shielded,
+  overloaded,
 }: {
   t: PType;
   c: Color;
   frozen: boolean;
   shielded: boolean;
+  overloaded: boolean;
 }) {
   const geo = useMemo(
     () =>
@@ -242,6 +245,12 @@ function PieceMesh({
         <ringGeometry args={[0.36, 0.42, 32]} />
         <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
+      {overloaded && t === "k" && (
+        <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.61, 0.055, 12, 48]} />
+          <meshBasicMaterial color={token("gold")} toneMapped={false} />
+        </mesh>
+      )}
       {shielded && (
         <mesh position={[0, 0.5, 0]}>
           <sphereGeometry args={[0.62, 24, 24]} />
