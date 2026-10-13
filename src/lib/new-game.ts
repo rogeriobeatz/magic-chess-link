@@ -11,7 +11,7 @@ export function actionContext(): ActionContext {
 export function newGameState({ roulette = true, training = false, start = false } = {}) {
   const state = initialState({
     roulette,
-    rouletteRoll: randomArenaRoll(),
+    rouletteRoll: 0, // Start neutral; major events are rolled after three full rounds.
     clockMs: training ? 0 : MATCH_TIME_MS,
     matchId: crypto.randomUUID(),
   });
