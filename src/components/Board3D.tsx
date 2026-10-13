@@ -12,7 +12,6 @@ import {
   type Fx,
   type GameState,
   type PType,
-  materialAdvantage,
 } from "@/lib/chess";
 
 const token = (name: string) =>
@@ -131,13 +130,11 @@ function PieceMesh({
   c,
   frozen,
   shielded,
-  overloaded,
 }: {
   t: PType;
   c: Color;
   frozen: boolean;
   shielded: boolean;
-  overloaded: boolean;
 }) {
   const geo = useMemo(
     () =>
@@ -245,12 +242,6 @@ function PieceMesh({
         <ringGeometry args={[0.36, 0.42, 32]} />
         <meshBasicMaterial color={color} toneMapped={false} />
       </mesh>
-      {overloaded && t === "k" && (
-        <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.61, 0.055, 12, 48]} />
-          <meshBasicMaterial color={token("gold")} toneMapped={false} />
-        </mesh>
-      )}
       {shielded && (
         <mesh position={[0, 0.5, 0]}>
           <sphereGeometry args={[0.62, 24, 24]} />
@@ -644,8 +635,6 @@ export default function Board3D({
     ),
   );
   const preview = new Set(bombPreview ? bombArea(bombPreview.center) : []);
-  const unstableActive = state.roulette?.enabled && state.roulette.event === "unstable" &&
-    state.move - state.roulette.lastRolledMove < 2;
 
   return (
     <Canvas
@@ -812,18 +801,6 @@ export default function Board3D({
                 emissiveIntensity={sel ? 0.8 : isLast ? 0.25 : 0}
               />
             </mesh>
-            {[27, 28, 35, 36].includes(i) && (
-              <mesh position={[0, 0.011, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <ringGeometry args={[0.37, 0.43, 32]} />
-                <meshBasicMaterial color={token("gold")} transparent opacity={0.58} toneMapped={false} depthWrite={false} />
-              </mesh>
-            )}
-            {unstableActive && Math.floor(i / 8) === (state.unstableRank ?? 3) && (
-              <mesh position={[0, 0.013, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                <planeGeometry args={[0.93, 0.93]} />
-                <meshBasicMaterial color={token("blast")} transparent opacity={0.38} toneMapped={false} depthWrite={false} />
-              </mesh>
-            )}
             {hl && (
               <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                 {state.board[i] ? (
