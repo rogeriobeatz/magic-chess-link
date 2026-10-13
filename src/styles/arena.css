@@ -1333,3 +1333,17 @@
     }
   }
 }
+
+/* Celular deitado muito baixo: barras compactas para não cobrir os poderes */
+@media (max-height: 360px) and (orientation: landscape) {
+  .arena-stage { grid-template-rows: 24px minmax(0, 1fr) 24px; }
+  .arena-energy-ticks, .arena-material, .arena-player-avatar { display: none; }
+  .arena-hud { padding: 1px 6px; overflow: hidden; }
+  .arena-clock { font-size: 13px; }
+  .arena-console { overflow-y: auto; }
+}
+/* Toque mais confortável nos poderes */
+@media (pointer: coarse) {
+  .arena-power-btn { min-height: 48px; touch-action: manipulation; }
+  .arena-tool { min-width: 40px; min-height: 40px; }
+}
