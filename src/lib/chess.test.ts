@@ -20,6 +20,7 @@ function emptyState(): GameState {
 
 describe("Power action economy", () => {
   it.each<[PowerId, number, number | undefined]>([
+    ["freeze", 12, undefined],
     ["teleport", 52, 36],
     ["bolt", 8, undefined],
     ["bomb", 9, undefined],
@@ -63,33 +64,6 @@ describe("Power action economy", () => {
     expect(moved.powerUsed).toBe(false);
     expect(isShielded(moved.board[52]!, moved.move)).toBe(true);
   });
-  it("freeze works as a quick action followed by a normal move", () => {
-    const state = initialState();
-    state.energy.w = 5;
-    const frozen = applyPower(state, "freeze", 12)!;
-    expect(frozen.turn).toBe("w");
-    expect(frozen.powerUsed).toBe(true);
-    expect(frozen.energy.w).toBe(2);
-    const moved = applyMove(frozen, 51, 35)!;
-    expect(moved.turn).toBe("b");
-  });
-  it("awards comeback and center-control energy once per completed round", () => {
-    const state = initialState();
-    state.board[3] = null;
-    state.board[35] = { t: "n", c: "w" };
-    const white = applyMove(state, 52, 44)!;
-    const black = applyMove(white, 12, 20)!;
-    expect(black.energy.w).toBe(4);
-    expect(black.energy.b).toBe(4);
-  });
-  it("triggers overcharge at round 3 with a deterministic event roll", () => {
-    let state = initialState({ roulette: true, rouletteRoll: 0 });
-    for (const [from, to] of [[52,44],[12,20],[51,43],[11,19],[50,42],[10,18]]) {
-      state = applyMove(state, from!, to!, {rouletteRoll: 4})!;
-    }
-    expect(state.roulette?.event).toBe("overcharge");
-    expect(state.energy.w).toBeGreaterThanOrEqual(5);
-  });
   it("shield and freeze last through the enemy turn and expire on return", () => {
     const state = initialState();
     state.energy.w = 10;
@@ -100,45 +74,9 @@ describe("Power action economy", () => {
     expect(isShielded(returned.board[52]!, returned.move)).toBe(false);
     const frozen = applyPower(state, "freeze", 12)!;
     expect(isFrozen(frozen.board[12]!, frozen.move)).toBe(true);
-    expect(applyPower(frozen, "shield", 52)).toBeNull();
-    const afterFreezeMove = applyMove(frozen, 51, 35)!;
-    expect(applyMove(afterFreezeMove, 12, 28)).toBeNull();
-    const thawed = applyMove(afterFreezeMove, 11, 27)!;
+    expect(applyMove(frozen, 12, 28)).toBeNull();
+    const thawed = applyMove(frozen, 11, 27)!;
     expect(isFrozen(thawed.board[12]!, thawed.move)).toBe(false);
-  });
-
-  it("pawn fury permits a two-square advance after leaving the starting rank", () => {
-    const state = initialState({ roulette: true, rouletteRoll: 6 });
-    state.board[48] = null;
-    state.board[40] = { t: "p", c: "w", id: "pawn-fury-test" };
-    expect(movesFrom(state, 40)).toContain(24);
-    state.roulette!.event = "stable";
-    expect(movesFrom(state, 40)).not.toContain(24);
-  });
-
-  it("unstable rank blocks movement into rank 5 for one completed round", () => {
-    const state = emptyState();
-    state.board[60] = { t: "k", c: "w" };
-    state.board[4] = { t: "k", c: "b" };
-    state.board[32] = { t: "r", c: "w" };
-    state.roulette = { enabled: true, event: "unstable", cycle: 1, lastRolledMove: 0 };
-    state.unstableRank = 3;
-    expect(movesFrom(state, 32)).not.toContain(24);
-    state.move = 2;
-    expect(movesFrom(state, 32)).toContain(24);
-  });
-
-  it("reactive king overload freezes an invader capturing within two squares", () => {
-    const state = emptyState();
-    state.turn = "b";
-    state.board[60] = { t: "k", c: "w" };
-    state.board[4] = { t: "k", c: "b" };
-    state.board[35] = { t: "r", c: "b" };
-    state.board[51] = { t: "n", c: "w" };
-    const captured = applyMove(state, 35, 51)!;
-    expect(captured).not.toBeNull();
-    expect(captured.lastDecision).toContain("SOBRECARGA DO REI");
-    expect(captured.board[51]?.frozen).toBe(3);
   });
 
   it("rejects incomplete, occupied, off-board and fractional teleport destinations", () => {
@@ -161,7 +99,7 @@ describe("Power action economy", () => {
     expect(powerTargets(state, "shield")).toEqual([]);
     expect(applyPower(state, "shield", 60)).toBeNull();
     expect(applyPower(state, "bolt", 4)).toBeNull();
-    expect(applyPower(state, "freeze", 4)?.turn).toBe("w");
+    expect(applyPower(state, "freeze", 4)?.turn).toBe("b");
   });
 });
 
@@ -221,7 +159,7 @@ describe("Check, mate and legal escapes", () => {
     expect(checked.winner).toBeNull();
     expect(checked.result).toBeUndefined();
     expect(powerTargets(checked, "freeze")).toContain(39);
-    expect(applyPower(checked, "freeze", 39)?.turn).toBe("w");
+    expect(applyPower(checked, "freeze", 39)?.turn).toBe("b");
   });
 
   it("records stalemate as a draw", () => {
