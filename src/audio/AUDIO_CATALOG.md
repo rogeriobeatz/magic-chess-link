@@ -84,3 +84,24 @@ Fonte: commits `ebc6b1c` ("SFX Library") e `4b35251` ("novos sons"), pasta `src/
 5. Verificar licenças antes da publicação pública; nomes de arquivos não comprovam permissão de redistribuição.
 6. Remover duplicatas WAV/MP3 e `__MACOSX` somente depois de verificar o conteúdo.
 7. Manter fallback sintetizado de `src/lib/arena-audio.ts` até os arquivos reais estarem confirmados e testados.
+
+
+## Integração inicial — 13/10/2026
+
+O runtime passou a importar os arquivos reais diretamente de `src/audio`, por meio de `src/lib/arena-audio.ts`. Quick Chat usa o mesmo mapa de sons. Os originais continuam intactos.
+
+| Gatilho | Arquivo ativo | Ganho inicial |
+|---|---|---|
+| Movimento | Chess Piece Sliding Movement 1.mp3 | 22% |
+| Captura | OBJECT_TABLE_GAME_Chess_Piece_Place_04.wav | 30% |
+| Raio | tiros de lazer.wav | 28% |
+| Escudo | Sparkling Magic Elixir.wav | 22% |
+| Congelar | Sparkle Elixir Bonus.wav | 20% |
+| Teleporte | up diamond-sparkle.mp3 | 23% |
+| Quick Chat | Message Alert.mp3 | 15% |
+| Vitória | Game Celebration 2.mp3 | 26% |
+| Derrota | Gamers Fail Game.wav | 24% |
+
+Os sons de bomba e poderes genéricos seguem sintetizados. Outros arquivos ainda não foram escolhidos porque uma comparação auditiva é necessária. Os ganhos acima são iniciais, não níveis normalizados.
+
+**Validação pendente:** não foi possível executar build ou ouvir todos os binários neste ambiente. Testar importação dos arquivos pelo Vite, autoplay após gesto do usuário, sincronização realtime, duração de cada efeito, loudness e licenciamento. Não declarar estes áudios aprovados sem esse teste.
