@@ -2,10 +2,13 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 const Board3D = lazy(() => import("@/components/Board3D"));
 import GameAnnouncement from "@/components/GameAnnouncement";
+import { QuickChat, validReaction, type ChatReaction } from "@/components/QuickChat";
 import { ArenaBalance, MatchResult } from "@/components/ArenaBalance";
 import { timeLabel } from "@/lib/time";
 import { actionContext, newGameState } from "@/lib/new-game";
 import { recordMatch } from "@/lib/progress";
+import { useArenaSound } from "@/lib/arena-audio";
+import { useArenaHaptics } from "@/lib/haptics";
 import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import powerIcons from "@/assets/power-icons.png";
 import { Button } from "@/components/ui/button";
@@ -154,10 +157,58 @@ function GamePage() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [resultOpen, setResultOpen] = useState(false);
+  const [cinematic, setCinematic] = useState(false);
+  const seenFinals = useRef(new Set<string>());
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const chatChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [chatReaction, setChatReaction] = useState<ChatReaction | null>(null);
+  const chatTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerNameRef = useRef("Jogador");
+  const sideRef = useRef<Color | "spec" | null>(null);
+  const chatLastReceived = useRef<Record<string, number>>({});
   const submitting = useRef(false);
+  const [playerName, setPlayerName] = useState("");
+  const [opponentName, setOpponentName] = useState("");
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  useEffect(() => {
+    setPlayerName(sessionStorage.getItem("chess-nickname-" + id) ?? "");
+  }, [id]);
+  function saveNickname() {
+    const name = nicknameDraft.trim().replace(/\\s+/g, " ").slice(0, 24);
+    if (!name) return;
+    sessionStorage.setItem("chess-nickname-" + id, name);
+    setPlayerName(name);
+  }
 
+  sideRef.current = me;
+  playerNameRef.current = playerName;
+  useEffect(() => {
+    setOpponentName("");
+  }, [id]);
+  useEffect(() => {
+    if (local || !playerName || !me || me === "spec" || !chatChannel.current) return;
+    const channel = chatChannel.current;
+    const timer = setTimeout(() => {
+      void channel.send({ type: "broadcast", event: "player-presence", payload: { side: me, name: playerName, request: true } });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [id, local, playerName, me]);
+  function showChat(message: ChatReaction) {
+    setChatReaction(message);
+    if (chatTimeout.current) clearTimeout(chatTimeout.current);
+    chatTimeout.current = setTimeout(() => setChatReaction(null), 3000);
+  }
+  async function sendChat(message: ChatReaction): Promise<boolean> {
+    const channel = chatChannel.current;
+    if (!channel || !row?.black_token || !me || me === "spec" || me !== message.side) return false;
+    try {
+      const response = await channel.send({ type: "broadcast", event: "quick-chat", payload: message });
+      if (response !== "ok") return false;
+      showChat(message);
+      return true;
+    } catch { return false; }
+  }
   useEffect(() => {
     let active = true;
     setNotFound(false);
@@ -187,6 +238,24 @@ function GamePage() {
     });
     const ch = supabase
       .channel(`game-${id}`)
+      .on("broadcast", { event: "player-presence" }, ({ payload }) => {
+        if (!active || !payload || typeof payload !== "object") return;
+        const p = payload as { side?: unknown; name?: unknown; request?: unknown };
+        if ((p.side !== "w" && p.side !== "b") || p.side === sideRef.current || typeof p.name !== "string") return;
+        setOpponentName(p.name.trim().slice(0, 24));
+        if (p.request === true && sideRef.current && sideRef.current !== "spec" && playerNameRef.current) {
+          void ch.send({ type: "broadcast", event: "player-presence", payload: { side: sideRef.current, name: playerNameRef.current, request: false } });
+        }
+      })
+      .on("broadcast", { event: "quick-chat" }, ({ payload }) => {
+        if (!active || !validReaction(payload) || sideRef.current === "spec") return;
+        const sender = payload as ChatReaction;
+        if (sender.side === sideRef.current) return;
+        const time = Date.now();
+        if (time - (chatLastReceived.current[sender.side] ?? 0) < 2800) return;
+        chatLastReceived.current[sender.side] = time;
+        showChat(sender);
+      })
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "games", filter: `id=eq.${id}` },
@@ -206,17 +275,33 @@ function GamePage() {
             });
         }
       });
+    chatChannel.current = ch;
     return () => {
       active = false;
+      if (chatChannel.current === ch) chatChannel.current = null;
+      if (chatTimeout.current) clearTimeout(chatTimeout.current);
       supabase.removeChannel(ch);
     };
   }, [id, local, solo, training]);
 
   const s = row?.state;
   const over = !!s && isGameOver(s);
+  useArenaSound(s, effects, me, id);
+  useArenaHaptics(s, effects);
   useEffect(() => {
-    setResultOpen(over);
-  }, [over, s?.matchId]);
+    if (!over || !s || !effects || s.result !== "checkmate") {
+      setCinematic(false);
+      setResultOpen(over);
+      return;
+    }
+    const finalKey = id + ":" + (s.matchId ?? "legacy");
+    if (seenFinals.current.has(finalKey)) { setResultOpen(true); return; }
+    seenFinals.current.add(finalKey);
+    setResultOpen(false);
+    setCinematic(true);
+    const transition = setTimeout(() => { setCinematic(false); setResultOpen(true); }, 2300);
+    return () => clearTimeout(transition);
+  }, [over, s?.matchId, s?.result, id, effects]);
   useEffect(() => {
     if (!s || row?.id !== id || !over || saving || training || !me || me === "spec") return;
     try {
@@ -471,6 +556,19 @@ function GamePage() {
     setSel(p && p.c === s.turn ? i : null);
   }
 
+  if (!playerName && id !== "treino" && !notFound) return (
+    <main className="nickname-screen">
+      <form className="nickname-modal" onSubmit={(event) => { event.preventDefault(); saveNickname(); }}>
+        <span>CHESS LEAGUE // IDENTIFICAÇÃO</span>
+        <h1>COMO VAMOS TE CHAMAR?</h1>
+        <p>Escolha um apelido para esta partida. Sem telefone, sem senha, sem cadastro.</p>
+        <label htmlFor="nickname-input">SEU NOME NA ARENA</label>
+        <input id="nickname-input" autoFocus autoComplete="off" maxLength={24} required value={nicknameDraft} onChange={event => setNicknameDraft(event.target.value)} placeholder="Ex.: Rei do Xeque" />
+        <button type="submit">ENTRAR NA ARENA →</button>
+        <small>O nome fica apenas nesta sessão do navegador.</small>
+      </form>
+    </main>
+  );
   if (notFound)
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4">
@@ -581,6 +679,8 @@ function GamePage() {
             <strong>{!row.black_token ? "Aguardando rival" : status}</strong>
           </div>
           <nav className="arena-tools" aria-label="Controles da arena">
+            <span className="arena-player-name">{playerName}</span>
+
             {!local && me !== "spec" && (
               <button
                 type="button"
@@ -639,11 +739,24 @@ function GamePage() {
           </nav>
         </header>
 
+        <QuickChat side={me} name={playerName} onSend={sendChat} reaction={chatReaction} enabled={!local && !!row.black_token && !over} />
+        {cinematic && s?.winner && (
+          <div className="arena-cinematic" role="status" aria-live="assertive" onClick={() => { setCinematic(false); setResultOpen(true); }}>
+            <div className="arena-cinematic-rays" aria-hidden="true" />
+            <div className="arena-cinematic-content">
+              <Crown aria-hidden="true" />
+              <span>FIM DE JOGO</span>
+              <strong>XEQUE-MATE</strong>
+              <p>{s.winner === me ? "VOCÊ CONQUISTOU A ARENA" : "A ARENA TEM UM VENCEDOR"}</p>
+              <small>Clique para continuar</small>
+            </div>
+          </div>
+        )}
         <div className="arena-workspace">
           <section className="arena-stage" aria-label="Arena de xadrez">
             <PlayerBar
               opponent
-              label={solo ? "Computador" : training || me === "spec" ? "Pretas" : "Adversário"}
+              label={solo ? "Computador" : training || me === "spec" ? "Pretas" : opponentName || "Adversário"}
               detail={
                 !row.black_token
                   ? "Aguardando"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Crown, ShieldAlert, Sparkles, Swords, Zap } from "lucide-react";
+import ArenaEmblem from "@/components/ArenaEmblem";
 import {
   isGameOver,
   isKingThreatened,
@@ -122,15 +122,6 @@ export default function GameAnnouncement({
   }, [kind, title, detail, mate, timeout, state.move, state.matchId, active]);
 
   if (!announcement) return null;
-  const Icon = ["win", "mate"].includes(announcement.kind)
-    ? Crown
-    : ["check", "lose"].includes(announcement.kind)
-      ? ShieldAlert
-      : announcement.kind === "power"
-        ? Zap
-        : announcement.kind === "promote"
-          ? Sparkles
-          : Swords;
   return (
     <div
       className={`arena-announcement ${effects ? "" : "announcement-static"}`}
@@ -140,11 +131,12 @@ export default function GameAnnouncement({
       aria-live="polite"
       aria-atomic="true"
     >
-      <div className="announcement-rays" aria-hidden="true" />
       <div className="announcement-card">
-        <Icon className="announcement-icon" aria-hidden="true" />
+        <ArenaEmblem kind={announcement.kind} />
         <span className="announcement-eyebrow">CHESS LEAGUE</span>
-        <strong>{announcement.title}</strong>
+        <div className="announcement-ribbon">
+          <strong>{announcement.title}</strong>
+        </div>
         <p>{announcement.detail}</p>
       </div>
     </div>

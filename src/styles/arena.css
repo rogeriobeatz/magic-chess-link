@@ -1,5 +1,77 @@
 /* Gameplay occupies the viewport. Supporting detail lives in dialogs. */
+@keyframes league-announcement-enter {
+  0% { opacity: 0; transform: translateY(18px) scale(.72) rotate(-4deg); }
+  65% { opacity: 1; transform: translateY(-3px) scale(1.035) rotate(1deg); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+}
+@keyframes league-emblem-enter {
+  0% { transform: translateY(16px) scale(.65) rotate(-12deg); }
+  70% { transform: translateY(-3px) scale(1.08) rotate(3deg); }
+  100% { transform: translateY(0) scale(1) rotate(0); }
+}
 @layer components {
+  .arena-result-dialog .match-result-card {
+    --announcement-tone: var(--arena-gold);
+    text-align: center;
+  }
+  .arena-result-dialog .match-result-card[data-result="lose"] {
+    --announcement-tone: var(--arena-magenta);
+  }
+  .arena-result-dialog .match-result-card[data-result="draw"] {
+    --announcement-tone: var(--arena-cyan);
+  }
+  .arena-result-dialog .match-result-card > .announcement-emblem {
+    width: 124px;
+    height: 124px;
+    margin: 0 auto 8px;
+  }
+  .arena-result-dialog .match-result-card > h3 {
+    font-style: italic;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    padding: 12px 8px;
+    border-block: 2px solid var(--announcement-tone);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--announcement-tone) 22%, var(--arena-ink)), var(--arena-ink));
+    text-shadow: 0 3px 0 var(--arena-ink);
+  }
+  .arena-result-dialog .match-stat-grid,
+  .arena-result-dialog .decisive-action,
+  .arena-result-dialog .cosmetic-progress,
+  .arena-result-dialog .balance-metrics {
+    text-align: left;
+  }
+  .arena-ui .arena-event > .announcement-emblem {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 6px;
+  }
+  .arena-ui .bomb-warning > .announcement-emblem {
+    width: 38px;
+    height: 38px;
+    float: left;
+    margin-right: 8px;
+  }
+  @media (max-width: 600px) {
+    .announcement-card > .announcement-emblem { width: 86px; height: 86px; }
+    .announcement-card strong,
+    .arena-announcement[data-kind="turn"] strong { font-size: 27px; }
+    .announcement-card p { font-size: 11px; }
+    .announcement-ribbon { padding: 10px 14px 12px; }
+  }
+  @media (max-height: 520px) and (orientation: landscape) {
+    .announcement-card > .announcement-emblem { width: 54px; height: 54px; }
+    .announcement-card { width: min(90%, 340px); }
+    .announcement-card strong,
+    .arena-announcement[data-kind="turn"] strong { font-size: 23px; }
+    .announcement-ribbon { padding: 7px 12px 9px; }
+    .announcement-card p { font-size: 10px; margin-top: 4px; padding: 3px 8px; }
+    .announcement-eyebrow { font-size: 8px; padding: 2px 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .announcement-card,
+    .announcement-card > .announcement-emblem { animation: none; }
+  }
   .arena-ui {
     --arena-cyan: oklch(0.82 0.15 207);
     --arena-magenta: oklch(0.68 0.29 337);
@@ -1332,4 +1404,18 @@
       padding: 5px;
     }
   }
+}
+
+/* Celular deitado muito baixo: barras compactas para não cobrir os poderes */
+@media (max-height: 360px) and (orientation: landscape) {
+  .arena-stage { grid-template-rows: 24px minmax(0, 1fr) 24px; }
+  .arena-energy-ticks, .arena-material, .arena-player-avatar { display: none; }
+  .arena-hud { padding: 1px 6px; overflow: hidden; }
+  .arena-clock { font-size: 13px; }
+  .arena-console { overflow-y: auto; }
+}
+/* Toque mais confortável nos poderes */
+@media (pointer: coarse) {
+  .arena-power-btn { min-height: 48px; touch-action: manipulation; }
+  .arena-tool { min-width: 40px; min-height: 40px; }
 }
