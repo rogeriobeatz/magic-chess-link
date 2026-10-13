@@ -225,87 +225,97 @@
   .arena-announcement[data-kind="check"],
   .arena-announcement[data-kind="mate"],
   .arena-announcement[data-kind="lose"] {
-    --announcement-tone: var(--arena-fire);
+    --announcement-tone: var(--arena-magenta);
   }
   .arena-announcement[data-kind="win"],
   .arena-announcement[data-kind="promote"] {
     --announcement-tone: var(--arena-gold);
   }
   .arena-announcement[data-kind="power"] {
-    --announcement-tone: var(--arena-violet);
+    --announcement-tone: var(--arena-magenta);
   }
   .announcement-card {
     position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: min(88%, 500px);
-    padding: clamp(16px, 3vw, 30px) 14px;
-    border-block: 1px solid var(--announcement-tone);
-    background: linear-gradient(
-      90deg,
-      transparent,
-      var(--arena-surface) 12%,
-      var(--arena-surface) 88%,
-      transparent
-    );
+    width: min(92%, 460px);
+    padding: 0 4px;
+    border: 0;
+    background: none;
     text-align: center;
-    animation: announcement-enter 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: league-announcement-enter 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .announcement-icon {
-    width: clamp(26px, 4vw, 42px);
-    height: auto;
-    margin-bottom: 8px;
-    color: var(--announcement-tone);
-    filter: drop-shadow(0 0 10px var(--announcement-tone));
-    animation: announcement-icon 1.8s ease-in-out infinite;
+  .announcement-emblem {
+    display: block;
+    width: 116px;
+    height: 116px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 5px 2px var(--arena-ink)) drop-shadow(0 0 14px color-mix(in oklab, var(--announcement-tone, var(--arena-gold)) 30%, transparent));
+  }
+  .announcement-card > .announcement-emblem {
+    position: relative;
+    z-index: 2;
+    margin-bottom: -7px;
+    animation: league-emblem-enter 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .announcement-eyebrow {
     font-size: 9px;
     font-weight: 800;
-    letter-spacing: 0.32em;
-    color: var(--arena-muted);
+    letter-spacing: 0;
+    color: var(--arena-gold);
+    padding: 4px 14px;
+    background: var(--arena-ink);
+    border: 1px solid var(--arena-gold);
+    border-bottom: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .announcement-ribbon {
+    position: relative;
+    width: 100%;
+    padding: 13px 18px 15px;
+    border-top: 2px solid var(--arena-gold);
+    border-bottom: 3px solid var(--arena-gold);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--announcement-tone) 38%, var(--arena-ink)), var(--arena-ink));
+    clip-path: polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%);
+    box-shadow: inset 0 2px 0 color-mix(in oklab, var(--arena-text) 30%, transparent), inset 0 -5px 0 color-mix(in oklab, var(--announcement-tone) 25%, transparent);
   }
   .announcement-card strong {
     font-family: var(--font-display);
-    font-size: clamp(25px, 3.8vw, 52px);
-    font-weight: 800;
-    line-height: 1.15;
-    margin: 8px 0;
+    display: block;
+    font-size: 38px;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: 0;
+    line-height: 1.1;
+    margin: 0;
     color: var(--arena-text);
-    text-shadow: 0 0 18px color-mix(in oklab, var(--announcement-tone) 70%, transparent);
+    -webkit-text-stroke: 1px var(--arena-ink);
+    paint-order: stroke fill;
+    text-shadow: 0 3px 0 var(--arena-ink), 0 5px 0 color-mix(in oklab, var(--announcement-tone) 50%, var(--arena-ink));
   }
   .announcement-card p {
-    color: var(--arena-muted);
-    font-size: clamp(10px, 1.2vw, 13px);
-  }
-  .announcement-rays {
-    position: absolute;
-    width: min(90%, 620px);
-    aspect-ratio: 1;
-    border: 1px solid color-mix(in oklab, var(--announcement-tone) 45%, transparent);
-    border-radius: 50%;
-    background: radial-gradient(
-      circle,
-      color-mix(in oklab, var(--announcement-tone) 14%, transparent),
-      transparent 65%
-    );
-    animation: announcement-wave 900ms ease-out both;
-    z-index: -1;
+    color: var(--arena-text);
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 90%;
+    margin: 7px 0 0;
+    padding: 6px 12px;
+    background: var(--arena-surface);
+    border-radius: 4px;
   }
   .arena-announcement[data-kind="turn"] .announcement-card {
-    width: min(80%, 350px);
-    padding: 14px;
+    width: min(84%, 350px);
+    padding: 0 4px;
   }
   .arena-announcement[data-kind="turn"] strong {
-    font-size: clamp(24px, 3vw, 36px);
+    font-size: 34px;
   }
   .announcement-static *,
   .announcement-static *::before {
     animation: none !important;
-  }
-  .announcement-static .announcement-rays {
-    display: none;
   }
   .powers-rule {
     margin: -4px 0 12px;
