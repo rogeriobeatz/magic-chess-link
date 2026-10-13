@@ -100,13 +100,15 @@ describe("Power action economy", () => {
   });
 
   it("does not award the emergency recharge twice", () => {
-    const state = initialState();
+    let state = initialState();
+    for (const [from, to] of [[53,45],[12,28],[54,38]]) {
+      state = applyMove(state, from!, to!)!;
+    }
     state.rescueUsed = { w: true, b: false };
-    state.energy.w = 0;
-    state.board[51] = null;
-    state.board[35] = { t: "r", c: "b", id: "threat" };
-    const next = applyMove(state, 52, 44)!;
-    expect(next.rescueUsed?.w).toBe(true);
+    const before = state.energy.w;
+    const checked = applyMove(state, 3, 39)!;
+    expect(checked.rescueUsed?.w).toBe(true);
+    expect(checked.energy.w).toBe(before + 1);
   });
 
   it("rejects incomplete, occupied, off-board and fractional teleport destinations", () => {
