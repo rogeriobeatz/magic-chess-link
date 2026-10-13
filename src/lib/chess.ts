@@ -164,7 +164,7 @@ export function initialState(
     board,
     turn: "w",
     move: 0,
-    energy: { w: 1, b: 1 },
+    energy: { w: 2, b: 2 },
     powerUsed: false,
     winner: null,
     log: [],
@@ -363,6 +363,7 @@ function capture(s: GameState, square: number, owner: Color) {
   if (!piece || piece.c === owner || piece.t === "k") return;
   s.material![owner] += MATERIAL_VALUE[piece.t];
   s.captures![owner].push(piece.t);
+  s.energy[owner] = Math.min(MAX_ENERGY, s.energy[owner] + 1);
   s.board[square] = null;
 }
 function resolveBombs(s: GameState, effects: boolean) {
@@ -575,7 +576,7 @@ function powerDraft(
     materialAfter: materialAdvantage(s, s.turn),
   });
   s.lastDecision = entry;
-  s.log.unshift(entry + " — turno encerrado");
+  s.log.unshift(entry + (power === "shield" ? " — ação rápida; mova uma peça" : " — turno encerrado"));
   return s;
 }
 export function positionKey(s: GameState): string {
@@ -749,6 +750,11 @@ export function applyPower(
   const s = powerDraft(s0, power, target, dest, context);
   if (!s) return null;
   chargeClock(s, context);
+  if (power === "shield") {
+    s.powerUsed = true;
+    s.revision = (s.revision ?? 0) + 1;
+    return s;
+  }
   return finishTurn(s, context);
 }
 export const GLYPH: Record<PType, string> = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
