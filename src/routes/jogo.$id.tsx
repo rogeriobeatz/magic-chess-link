@@ -143,7 +143,6 @@ function GamePage() {
   const [notFound, setNotFound] = useState(false);
   const [sel, setSel] = useState<number | null>(null);
   const [power, setPower] = useState<PowerId | null>(null);
-  const [previewPower, setPreviewPower] = useState<PowerId | null>(null);
   const [tpFrom, setTpFrom] = useState<number | null>(null);
   const [bombCenter, setBombCenter] = useState<number | null>(null);
   const [marked, setMarked] = useState<number[]>([]);
@@ -403,11 +402,9 @@ function GamePage() {
     if (!s || !myTurn) return new Set<number>();
     if (power === "bomb" && bombCenter !== null) return new Set(bombTargets(s, bombCenter));
     if (power) return new Set(powerTargets(s, power, tpFrom ?? undefined));
-    if (previewPower === "bolt" || previewPower === "teleport")
-      return new Set(powerTargets(s, previewPower));
     if (sel !== null) return new Set(movesFrom(s, sel));
     return new Set<number>();
-  }, [s, myTurn, power, previewPower, sel, tpFrom, bombCenter]);
+  }, [s, myTurn, power, sel, tpFrom, bombCenter]);
 
   async function push(proposed: GameState) {
     if (submitting.current || !row || row.id !== id) return false;
@@ -870,7 +867,7 @@ function GamePage() {
                   <small>/{MAX_ENERGY}</small>
                 </span>
               </div>
-              <p className="arena-rack-rule">Escudo e Congelar são ações rápidas: use um deles e depois mova uma peça. Teleporte, Raio e Bomba encerram a vez.</p>
+              <p className="arena-rack-rule">Escudo é ação rápida: use e depois mova uma peça. Os demais poderes encerram a vez.</p>
               <div className="arena-power-list">
                 {(Object.keys(POWERS) as PowerId[]).map((k, index) => {
                   const pw = POWERS[k],
