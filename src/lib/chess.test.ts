@@ -79,6 +79,36 @@ describe("Power action economy", () => {
     expect(isFrozen(thawed.board[12]!, thawed.move)).toBe(false);
   });
 
+  it("grants one emergency recharge on first check and allows safe king teleport", () => {
+    let state = initialState();
+    for (const [from, to] of [[53,45],[12,28],[54,38],[3,39]]) {
+      state = applyMove(state, from!, to!)!;
+    }
+    expect(isInCheck(state, "w")).toBe(true);
+    expect(state.rescueUsed?.w).toBe(true);
+    expect(state.energy.w).toBeGreaterThanOrEqual(4);
+    expect(powerTargets(state, "teleport")).toContain(60);
+    const legal = powerTargets(state, "teleport", 60);
+    expect(legal.length).toBeGreaterThan(0);
+    const escaped = applyPower(state, "teleport", 60, legal[0]!)!;
+    expect(escaped).not.toBeNull();
+    expect(isInCheck(escaped, "w")).toBe(false);
+    expect(escaped.turn).toBe("b");
+    const neutral = initialState();
+    neutral.energy.w = 10;
+    expect(powerTargets(neutral, "teleport")).not.toContain(60);
+  });
+
+  it("does not award the emergency recharge twice", () => {
+    const state = initialState();
+    state.rescueUsed = { w: true, b: false };
+    state.energy.w = 0;
+    state.board[51] = null;
+    state.board[35] = { t: "r", c: "b", id: "threat" };
+    const next = applyMove(state, 52, 44)!;
+    expect(next.rescueUsed?.w).toBe(true);
+  });
+
   it("rejects incomplete, occupied, off-board and fractional teleport destinations", () => {
     const state = initialState();
     state.energy.w = 10;
@@ -143,6 +173,7 @@ describe("Check, mate and legal escapes", () => {
   it("recognizes Fool's Mate and blocks every action after the result", () => {
     const state = beforeFoolsMate();
     state.energy.w = 0;
+    state.rescueUsed = { w: true, b: false };
     const mate = applyMove(state, 3, 39)!;
     expect(mate.result).toBe("checkmate");
     expect(mate.winner).toBe("b");
