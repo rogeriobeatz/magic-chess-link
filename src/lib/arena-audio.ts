@@ -6,7 +6,7 @@ import laserSfx from "../audio/tiros de lazer.wav";
 import shieldSfx from "../audio/Sparkling Magic Elixir.wav";
 import freezeSfx from "../audio/Sparkle Elixir Bonus.wav";
 import teleportSfx from "../audio/up diamond-sparkle.mp3";
-import victorySfx from "../audio/Game Celebration 2.mp3";
+import victorySfx from "../audio/Game Celebration 1.mp3";
 import defeatSfx from "../audio/Gamers Fail Game.wav";
 import chatSfx from "../audio/mensagem enviada/Message Alert/Message Alert.mp3";
 
