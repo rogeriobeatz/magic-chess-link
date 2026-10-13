@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Bot, Check, Copy, Crown, Flame, Gamepad2, LockKeyhole, Radio, Shield, Sparkles, Swords, Trophy, UserRound, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { newGameState } from "@/lib/new-game";
+import { initialChaos } from "@/lib/chaos";
 import { soloGameId, type Difficulty } from "@/lib/computer";
 import logo from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 import arenaArt from "../../img-refs/Arena Neon de Xadrez Galáctico.png";
@@ -22,7 +23,9 @@ export const Route = createFileRoute("/")({
 const difficulties: Record<Difficulty, string> = { easy: "Recruta", medium: "Tático", hard: "Mestre" };
 
 function Hall() {
+  const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [chaosCreating, setChaosCreating] = useState(false);
   const [roomLink, setRoomLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
@@ -53,8 +56,7 @@ function Hall() {
       if (failure || !data) throw new Error("room-create-failed");
       localStorage.setItem("xadrez-token-" + data.id, token);
       const url = new URL("/jogo/" + data.id, window.location.origin).href;
-      setRoomLink(url);
-      await copyRoom(url);
+      await navigate({to:"/jogo/$id",params:{id:data.id}});
     } catch {
       setError("Não foi possível criar a sala. Confira sua conexão e tente novamente.");
     } finally {
@@ -62,6 +64,19 @@ function Hall() {
     }
   }
 
+  async function createChaosRoom() {
+    if(chaosCreating)return;
+    setChaosCreating(true);setError("");
+    try{
+      const token=crypto.randomUUID();
+      const {data,error:failure}=await supabase.from("games")
+        .insert({white_token:token,state:initialChaos() as never}).select("id").single();
+      if(failure||!data)throw new Error("chaos-create");
+      localStorage.setItem("xadrez-token-"+data.id,token);
+      await navigate({to:"/caos/$id",params:{id:data.id}});
+    }catch{setError("Não foi possível criar sua sala CAOS. Tente novamente.")}
+    finally{setChaosCreating(false)}
+  }
   return (
     <main className="hall" id="hall">
       <div className="hall-container">
@@ -126,7 +141,7 @@ function Hall() {
               <span className="hall-mode-index"><Flame size={14}/> ARENA 03 // SEM LIMITES</span>
               <h2>MODO<br/>CAOS.</h2>
               <p>Cartas absurdas, mutações e duelos frenéticos. Prepare-se para esquecer tudo que conhece.</p>
-              <div className="hall-card-bottom"><span className="hall-status"><Sparkles size={12}/> EM DESENVOLVIMENTO</span></div>
+              <div className="hall-card-bottom"><button type="button" className="hall-btn" disabled={chaosCreating} onClick={()=>void createChaosRoom()}><Flame size={15}/>{chaosCreating?"CRIANDO...":"ENTRAR NO CAOS"}<ArrowRight size={15}/></button></div>
             </div>
           </article>
         </section>
