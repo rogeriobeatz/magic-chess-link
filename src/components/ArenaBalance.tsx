@@ -18,6 +18,7 @@ import {
 } from "@/lib/progress";
 import type { Difficulty } from "@/lib/computer";
 import { timeLabel } from "@/lib/time";
+import ArenaEmblem from "@/components/ArenaEmblem";
 
 export function ArenaBalance({ state, effects }: { state: GameState; effects: boolean }) {
   const roulette = state.roulette;
@@ -43,6 +44,7 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
             data-event={roulette.event}
             role="status"
           >
+            <ArenaEmblem kind="power" />
             <span>EVENTO COMPARTILHADO</span>
             <strong>{event.name}</strong>
             <p>{event.desc}</p>
@@ -74,6 +76,7 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
       </p>
       {!!state.bombs?.length && (
         <div className="bomb-warning" role="alert">
+          <ArenaEmblem kind="power" />
           <strong>BOMBA ARMADA!</strong>
           {state.bombs.map((bomb) => (
             <p key={`${bomb.owner}-${bomb.detonateAt}`}>
@@ -132,8 +135,11 @@ export function MatchResult({
       : state.winner === viewer
         ? "Você venceu!"
         : "Você perdeu";
+  const resultKind = !state.winner ? "draw"
+    : viewer === "spec" || training || state.winner === viewer ? "win" : "lose";
   return (
-    <section className="neon-card match-result-card" aria-label="Resumo da partida">
+    <section className="neon-card match-result-card" data-result={resultKind} aria-label="Resumo da partida">
+      <ArenaEmblem kind={resultKind} />
       <span className="result-eyebrow">PARTIDA ENCERRADA</span>
       <h3>{title}</h3>
       <p>{state.result ? RESULT_LABELS[state.result] : "Vitória"}</p>

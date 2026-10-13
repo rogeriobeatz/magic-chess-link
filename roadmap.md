@@ -6,3 +6,7 @@
 # Mobile playability
 - [ ] Make arena controls, player names, dialogs and chat fit touch screens and safe areas.
 - [ ] Verify touch moves, powers, solo replies and a real shared-link match on mobile sizes.
+
+# Announcement visual polish
+- [ ] Add AI-generated emblems and dimensional banners for all gameplay events and match summaries.
+- [ ] Verify event behavior and presentation on desktop and mobile without changing rules or blocking the board.
