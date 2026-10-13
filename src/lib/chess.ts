@@ -450,6 +450,7 @@ export function rawPowerTargets(s: GameState, power: PowerId, first?: number): n
     if (!piece || piece.c !== s.turn || piece.t === "k" || isFrozen(piece, s.move)) return [];
     return s.board.flatMap((p, i) =>
       !p &&
+      !(s.roulette?.enabled && s.roulette.event === "unstable" && s.move - s.roulette.lastRolledMove < 2 && s.unstableRank !== undefined && (Math.floor(first / 8) === s.unstableRank || Math.floor(i / 8) === s.unstableRank)) &&
       distance(first, i) <= 3 &&
       (piece.t !== "p" || (Math.floor(i / 8) !== 0 && Math.floor(i / 8) !== 7))
         ? [i]
@@ -731,6 +732,13 @@ export function applyMove(
   const moving = s.board[from]!;
   s.board[to] = moving;
   s.board[from] = null;
+  // King's Overload: when down >=5 material, a capture inside the king's
+  // two-square shock radius freezes the invading piece on its next turn.
+  const defender = opposite(p.c);
+  const defenderKing = s.board.findIndex(piece => piece?.t === "k" && piece.c === defender);
+  const kingShock = !!captured && defenderKing >= 0 &&
+    materialAdvantage(s, defender) <= -5 && distance(defenderKing, to) <= 2;
+  if (kingShock) moving.frozen = Math.max(moving.frozen ?? 0, s.move + 3);
   if (moving.t === "p" && (Math.floor(to / 8) === 0 || Math.floor(to / 8) === 7)) moving.t = "q";
   const promoted = p.t === "p" && moving.t === "q";
   const entry =
@@ -741,7 +749,8 @@ export function applyMove(
     sqName(from) +
     "→" +
     sqName(to) +
-    (captured ? " captura " + NAMES[captured.t] : "");
+    (captured ? " captura " + NAMES[captured.t] : "") +
+    (kingShock ? " · SOBRECARGA DO REI: invasor paralisado" : "");
   s.fx = {
     id: Math.max(context.now ?? 0, (s0.fx?.id ?? 0) + 1),
     kind: promoted ? "promote" : captured ? "capture" : "move",
