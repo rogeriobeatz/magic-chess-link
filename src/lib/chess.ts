@@ -107,7 +107,7 @@ export const POWERS: Record<PowerId, { name: string; cost: number; desc: string;
   shield: {
     name: "Escudo",
     cost: 2,
-    desc: "Protege uma peça sua, exceto o rei, durante a resposta adversária. Intervalo: 3 rodadas.",
+    desc: "Ação rápida: protege uma peça sua, exceto o rei, durante a resposta adversária. Depois, mova uma peça. Intervalo: 3 rodadas.",
     icon: "🛡️",
   },
   freeze: {
