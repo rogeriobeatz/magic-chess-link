@@ -141,7 +141,7 @@ function Hall() {
               <span className="hall-mode-index"><Flame size={14}/> ARENA 03 // SEM LIMITES</span>
               <h2>MODO<br/>CAOS.</h2>
               <p>Cartas absurdas, mutações e duelos frenéticos. Prepare-se para esquecer tudo que conhece.</p>
-              <div className="hall-card-bottom"><button type="button" className="hall-btn" disabled={chaosCreating} onClick={()=>void createChaosRoom()}><Flame size={15}/>{chaosCreating?"CRIANDO...":"ENTRAR NO CAOS"}<ArrowRight size={15}/></button></div>
+              <div className="hall-card-bottom"><button type="button" className="hall-btn" disabled={chaosCreating} onClick={()=>void createChaosRoom()}><Flame size={15}/>{chaosCreating?"CRIANDO...":"ENTRAR NO CAOS"}<ArrowRight size={15}/></button><Link className="hall-btn hall-btn-secondary" to="/caos/$id" params={{id:"ia"}}><Bot size={15}/> JOGAR CONTRA IA</Link></div>
             </div>
           </article>
         </section>
