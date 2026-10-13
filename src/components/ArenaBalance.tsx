@@ -5,6 +5,7 @@ import {
   POWERS,
   RESULT_LABELS,
   sqName,
+  materialAdvantage,
   type GameState,
   type Color,
 } from "@/lib/chess";
@@ -23,6 +24,7 @@ import ArenaEmblem from "@/components/ArenaEmblem";
 export function ArenaBalance({ state, effects }: { state: GameState; effects: boolean }) {
   const roulette = state.roulette;
   const event = ARENA_EVENTS[roulette?.event ?? "stable"];
+  const zoneExpired = roulette?.event === "unstable" && state.move - roulette.lastRolledMove >= 2;
   const [spinning, setSpinning] = useState(false);
   useEffect(() => {
     if (!roulette?.enabled || !effects) return;
@@ -46,8 +48,8 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
           >
             <ArenaEmblem kind="power" />
             <span>EVENTO COMPARTILHADO</span>
-            <strong>{event.name}</strong>
-            <p>{event.desc}</p>
+            <strong>{zoneExpired ? "Zona estabilizada" : event.name}</strong>
+            <p>{zoneExpired ? "A fileira está liberada até o próximo sorteio." : event.desc}</p>
           </div>
           <p className="balance-note">
             Próximo sorteio em {Math.ceil((6 - (state.move % 6)) / 2)} rodada(s). O evento vale para
@@ -73,6 +75,9 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
       <p className="balance-note">
         +1 energia por rodada para ambos, +1 por captura e +1 pelo domínio do centro (d4, d5, e4, e5). Em desvantagem de 5 pontos de material, receba +1 extra por rodada.
       </p>
+      {(["w", "b"] as Color[]).filter(color => materialAdvantage(state, color) <= -5).map(color => (
+        <p className="balance-note" key={color}>⚡ SOBRECARGA DO REI ({color === "w" ? "BRANCAS" : "PRETAS"}): +1 energia extra por rodada. Capturas a até 2 casas do Rei paralisam o invasor no próximo turno.</p>
+      ))}
       {!!state.bombs?.length && (
         <div className="bomb-warning" role="alert">
           <ArenaEmblem kind="power" />
