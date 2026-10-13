@@ -436,7 +436,7 @@ export function movesFrom(s: GameState, from: number): number[] {
   const p = s.board[from];
   if (!p) return [];
   return pseudoMoves(s, from).filter((to) => {
-    if (s.roulette?.enabled && s.roulette.event === "unstable" && s.unstableRank !== undefined &&
+    if (s.roulette?.enabled && s.roulette.event === "unstable" && s.move - s.roulette.lastRolledMove < 2 && s.unstableRank !== undefined &&
       (Math.floor(from / 8) === s.unstableRank || Math.floor(to / 8) === s.unstableRank)) return false;
     const next = cloneState(s);
     next.board[to] = next.board[from]!;
@@ -604,7 +604,7 @@ export function positionKey(s: GameState): string {
     ["w", "b"].map((c) =>
       (Object.keys(POWERS) as PowerId[]).map((p) => relative(s.cooldowns?.[c as Color][p])),
     ),
-    s.roulette?.enabled ? [s.roulette.event, s.move % 6] : ["off"],
+    s.roulette?.enabled ? [s.roulette.event, s.move % 6, s.roulette.lastRolledMove] : ["off"],
     (s.bombs ?? []).map((b) => [
       b.owner,
       b.center,
