@@ -74,6 +74,9 @@ export function ArenaBalance({ state, effects }: { state: GameState; effects: bo
         +1 energia para os dois após cada rodada. Capturas pontuam material; o resultado depende do
         rei.
       </p>
+      {state.rescueUsed?.[state.turn] && (
+        <p className="balance-note">Resgate de emergência já utilizado pelas {state.turn === "w" ? "brancas" : "pretas"} nesta partida.</p>
+      )}
       {!!state.bombs?.length && (
         <div className="bomb-warning" role="alert">
           <ArenaEmblem kind="power" />
