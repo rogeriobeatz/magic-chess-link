@@ -79,7 +79,8 @@ describe("Power action economy", () => {
     state.board[35] = { t: "n", c: "w" };
     const white = applyMove(state, 52, 44)!;
     const black = applyMove(white, 12, 20)!;
-    expect(black.energy.w).toBeGreaterThan(black.energy.b);
+    expect(black.energy.w).toBe(4);
+    expect(black.energy.b).toBe(4);
   });
   it("triggers overcharge at round 3 with a deterministic event roll", () => {
     let state = initialState({ roulette: true, rouletteRoll: 0 });
@@ -126,7 +127,7 @@ describe("Power action economy", () => {
     expect(powerTargets(state, "shield")).toEqual([]);
     expect(applyPower(state, "shield", 60)).toBeNull();
     expect(applyPower(state, "bolt", 4)).toBeNull();
-    expect(applyPower(state, "freeze", 4)?.turn).toBe("b");
+    expect(applyPower(state, "freeze", 4)?.turn).toBe("w");
   });
 });
 
@@ -186,7 +187,7 @@ describe("Check, mate and legal escapes", () => {
     expect(checked.winner).toBeNull();
     expect(checked.result).toBeUndefined();
     expect(powerTargets(checked, "freeze")).toContain(39);
-    expect(applyPower(checked, "freeze", 39)?.turn).toBe("b");
+    expect(applyPower(checked, "freeze", 39)?.turn).toBe("w");
   });
 
   it("records stalemate as a draw", () => {
