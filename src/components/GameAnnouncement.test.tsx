@@ -10,6 +10,24 @@ afterEach(() => {
 });
 
 describe("Gameplay announcements", () => {
+  it.each([
+    ["move", "SUA VEZ!"],
+    ["capture", "CAPTURA!"],
+    ["promote", "NOVA DAMA!"],
+    ["shield", "ESCUDO!"],
+    ["freeze", "CONGELAR!"],
+    ["teleport", "TELEPORTE!"],
+    ["bolt", "RAIO!"],
+    ["bomb-arm", "BOMBA ARMADA!"],
+    ["bomb", "EXPLOSÃO!"],
+  ] as const)("gives %s accessible live text and AI artwork", (kind, title) => {
+    const state = { ...initialState(), fx: { id: 1, kind, squares: [52] } };
+    const { container } = render(<GameAnnouncement state={state} viewer="w" active effects />);
+    expect(screen.getByText(title)).toBeInTheDocument();
+    expect(container.querySelector(".announcement-emblem")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".announcement-ribbon")).toBeInTheDocument();
+  });
+
   it.each(["repetition", "insufficient-material"] as const)("announces %s as a draw", (result) => {
     render(<GameAnnouncement state={{ ...initialState(), result }} viewer="w" active effects />);
     expect(screen.getByText("EMPATE!")).toBeInTheDocument();
