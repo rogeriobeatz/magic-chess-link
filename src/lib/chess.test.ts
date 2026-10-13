@@ -47,7 +47,7 @@ describe("Power action economy", () => {
     const state = initialState();
     expect(state.energy).toEqual({ w: 2, b: 2 });
     state.board[40] = { t: "p", c: "b" };
-    const next = applyMove(state, 48, 40)!;
+    const next = applyMove(state, 49, 40)!;
     expect(next.energy.w).toBe(3);
   });
   it("shield is a quick action once per turn, then a piece moves", () => {
