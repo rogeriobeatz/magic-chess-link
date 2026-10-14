@@ -38,4 +38,10 @@ describe("Chaos PvP simultaneous rules",()=>{
   const ended=tickChaos(s,181001);
   expect(ended.phase).toBe("ended");expect(ended.winner).toBe("w");
  });
+ it("runs deterministic chaotic events every 30s",()=>{
+  const s=startChaos(initialChaos(),1000);
+  const a=tickChaos(s,31001);expect(a.event?.kind).toBe("fury");expect(a.speedUntil).toBe(39000);
+  expect(tickChaos(s,31001)).toEqual(a);
+  const b=tickChaos(a,61001);expect(b.eventCount).toBe(2);expect(b.pieces.filter(p=>p.type==="k")).toHaveLength(2);
+ });
 });

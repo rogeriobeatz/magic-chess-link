@@ -9,7 +9,17 @@ export type ChaosState = {
   cards: Record<Side, Record<ChaosCard, number>>;
   speedUntil: number; knightUntil: Record<Side, number>; shieldUntil: Record<Side, number>;
   eventsAt: number; feed: string[];
+  event?: { kind: ChaosEvent; until: number } | null; eventCount?: number;
 };
+export type ChaosEvent = "fury" | "inversion" | "superknight" | "meteor";
+export const CHAOS_EVENT_LABELS: Record<ChaosEvent,{title:string;text:string}> = {
+  fury:{title:"⚡ FÚRIA DOS PEÕES",text:"Peões recarregam em 0,75s por 8s!"},
+  inversion:{title:"🌀 INVERSÃO COSMICA",text:"Os exércitos trocaram de dono! Agora você comanda o lado oposto."},
+  superknight:{title:"♞ SUPER CAVALO",text:"Cavalos de ambos os lados saltam longe por 10s!"},
+  meteor:{title:"☄ CHUVA DE METEOROS",text:"Meteoros destruíram uma peça de cada exército!"},
+};
+const EVENTS: ChaosEvent[] = ["fury","inversion","superknight","meteor"];
+function hash(n:number){let h=n|0;h=Math.imul(h^(h>>>16),0x45d9f3b);h=Math.imul(h^(h>>>16),0x45d9f3b);return (h^(h>>>16))>>>0}
 export const CHAOS_DURATION = 180_000;
 export const CHAOS_CARD_LABELS: Record<ChaosCard,string> = { insight:"CAMINHOS SECRETOS",knight:"CAVALO INSANO",panic:"PÂNICO REAL" };
 const back: Unit[] = ["r","n","b","q","k","b","n","r"];
@@ -65,7 +75,22 @@ export function tickChaos(input:ChaosState,now:number):ChaosState{
   if(input.phase!=="playing")return input;
   const s={...input,scores:{...input.scores},feed:[...input.feed]};
   if(now>=s.endsAt){s.phase="ended";s.winner=s.scores.w===s.scores.b?"draw":s.scores.w>s.scores.b?"w":"b";s.feed.unshift("TEMPO ESGOTADO");return s}
-  if(now>=s.eventsAt){s.speedUntil=now+8000;s.eventsAt=now+30000;s.feed.unshift("⚡ FÚRIA DOS PEÕES: recargas aceleradas por 8s!");}
+  if(now>=s.eventsAt){
+    const at=s.eventsAt,count=(s.eventCount??0);
+    // Deterministic from saved state so both players compute the same event.
+    const kind=count===0?"fury":EVENTS[hash(at^s.startedAt)%EVENTS.length]!;
+    s.eventCount=count+1;s.eventsAt=at+30000;
+    s.knightUntil={...s.knightUntil};
+    if(kind==="fury")s.speedUntil=at+8000;
+    if(kind==="superknight"){s.knightUntil.w=at+10000;s.knightUntil.b=at+10000}
+    if(kind==="inversion"){s.pieces=s.pieces.map(p=>({...p,at:63-p.at,side:enemy(p.side)}))}
+    if(kind==="meteor"){
+      const victims=(["w","b"] as Side[]).map(side=>{const pool=s.pieces.filter(p=>p.side===side&&p.type!=="k");return pool.length?pool[hash(at+side.charCodeAt(0))%pool.length]!.id:null});
+      s.pieces=s.pieces.filter(p=>!victims.includes(p.id));
+    }
+    s.event={kind,until:at+(kind==="superknight"?10000:8000)};
+    s.feed.unshift(CHAOS_EVENT_LABELS[kind].title);s.feed=s.feed.slice(0,12);
+  }
   return s;
 }
 export function moveChaos(input:ChaosState,side:Side,id:string,to:number,now:number):ChaosState|null{

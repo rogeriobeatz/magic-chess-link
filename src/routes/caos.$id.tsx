@@ -5,7 +5,7 @@ import logoUrl from "../../img-refs/Logo 3D Chess League Neon Dourado.png";
 const Board3D = lazy(() => import("@/components/Board3D"));
 import { ArrowLeft, Bot, Copy, Flame, Sparkles, Shield, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { initialChaos, startChaos, tickChaos, moveChaos, cardChaos, movesChaos, bestChaosMove, CHAOS_CARD_LABELS, type ChaosState, type Side, type ChaosCard } from "@/lib/chaos";
+import { initialChaos, startChaos, tickChaos, moveChaos, cardChaos, movesChaos, bestChaosMove, CHAOS_CARD_LABELS, CHAOS_EVENT_LABELS, type ChaosState, type Side, type ChaosCard } from "@/lib/chaos";
 import "../styles/chaos.css";
 
 export const Route=createFileRoute("/caos/$id")({ssr:false,component:ChaosPage});
@@ -56,14 +56,15 @@ function ChaosPage(){
    return ()=>{live=false;clearInterval(poll);void supabase.removeChannel(ch)};
  },[id,setFresh,solo]);
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),120);return ()=>clearInterval(timer)},[]);
- const state=row?.state;
+ const rawState=row?.state;
+  const state=rawState?tickChaos(rawState,now):undefined;
  const boardState=useMemo<GameState|null>(()=>{
    if(!state)return null;
    const base=initialState({roulette:false,clockMs:0});
    base.board=Array(64).fill(null);
    for(const p of state.pieces)base.board[p.at]={t:p.type,c:p.side,id:p.id};
-   base.turn="w";base.winner=null;base.result=undefined;base.move=0;
-   base.fx=undefined;base.last=undefined;
+   base.turn="w";base.winner=null;delete base.result;base.move=0;
+   delete base.fx;delete (base as {last?:unknown}).last;
    return base;
  },[state]);
  useEffect(()=>{
@@ -83,7 +84,7 @@ function ChaosPage(){
    },1050);
    return ()=>clearTimeout(timer);
  },[solo,state?.revision,state?.phase,setFresh]);
- const turnState=state?tickChaos(state,now):null;
+ const turnState=state??null;
  const finished=turnState?.phase==="ended";
  const share=typeof window!=="undefined"?window.location.href:"";
  async function submit(next:ChaosState){
@@ -153,7 +154,7 @@ function ChaosPage(){
   </div>
   {suggestion&&<div className="chaos-tip"><Bot size={18}/><span>CAMINHOS SECRETOS: siga o destaque dourado para testar a sugestão da IA.</span></div>}
   {shielded&&ownKing&&<div className="chaos-tip"><Shield size={18}/> SEU REI ESTÁ PROTEGIDO</div>}
-  <div className="chaos-event"><strong>⚡ FÚRIA DOS PEÕES</strong><p>{(turnState?.speedUntil??0)>now?"ATIVA! Peões com recarga de 0,75s.":"A cada 30s, os peões aceleram por 8 segundos."}</p></div>
+  <div className="chaos-event" role="status" aria-live="polite">{turnState?.event&&turnState.event.until>now?<><strong>{CHAOS_EVENT_LABELS[turnState.event.kind].title}</strong><p>{CHAOS_EVENT_LABELS[turnState.event.kind].text}</p></>:<><strong>🎰 ROLETA DO CAOS</strong><p>Próximo evento em {Math.max(0,Math.ceil(((turnState?.eventsAt??0)-now)/1000))}s: fúria, inversão, super cavalo ou meteoros.</p></>}</div>
   <div className="chaos-log"><h3>ÚLTIMAS AÇÕES</h3>{state?.feed.slice(0,6).map((entry,i)=><div key={i}>{entry}</div>)}</div>
  </aside></div>
  {error&&<div className="chaos-error" role="alert">{error}</div>}
