@@ -135,7 +135,7 @@ function ChaosPage(){
  const [banner,setBanner]=useState<{kind:NonNullable<typeof eventKind>;key:number}|null>(null);
  const seenEvents=useRef<number|null>(null);
  useEffect(()=>{
-   if(seenEvents.current===null){seenEvents.current=eventCount;return}
+   if(seenEvents.current===null){seenEvents.current=eventCount;return undefined}
    if(eventCount>seenEvents.current&&eventKind){seenEvents.current=eventCount;setBanner({kind:eventKind,key:eventCount});
      try{navigator.vibrate?.([60,30,90])}catch{/* ignore */}
      const t=setTimeout(()=>setBanner(null),2600);return ()=>clearTimeout(t)}
