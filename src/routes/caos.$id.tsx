@@ -7,6 +7,7 @@ import { ArrowLeft, Bot, Copy, Flame, Sparkles, Shield, Zap } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { initialChaos, startChaos, tickChaos, moveChaos, cardChaos, movesChaos, bestChaosMove, CHAOS_CARD_LABELS, CHAOS_EVENT_LABELS, type ChaosState, type Side, type ChaosCard } from "@/lib/chaos";
 import "../styles/chaos.css";
+import ArenaEmblem from "@/components/ArenaEmblem";
 
 export const Route=createFileRoute("/caos/$id")({ssr:false,component:ChaosPage});
 type ChaosRow={id:string;white_token:string;black_token:string|null;state:ChaosState};
@@ -129,6 +130,18 @@ function ChaosPage(){
  const suggestSquare=suggestion?.to;
  const ownKing=state?.pieces.find(p=>p.type==="k"&&p.side===side);
  const shielded=side!=="spec"&&!!state&&state.shieldUntil[side]>now;
+ const eventCount=state?.eventCount??0;
+ const eventKind=state?.event?.kind;
+ const [banner,setBanner]=useState<{kind:NonNullable<typeof eventKind>;key:number}|null>(null);
+ const seenEvents=useRef<number|null>(null);
+ useEffect(()=>{
+   if(seenEvents.current===null){seenEvents.current=eventCount;return undefined}
+   if(eventCount>seenEvents.current&&eventKind){seenEvents.current=eventCount;setBanner({kind:eventKind,key:eventCount});
+     try{navigator.vibrate?.([60,30,90])}catch{/* ignore */}
+     const t=setTimeout(()=>setBanner(null),2600);return ()=>clearTimeout(t)}
+   return undefined;
+ },[eventCount,eventKind]);
+ const emblemFor={fury:"power",inversion:"turn",superknight:"promote",meteor:"mate"} as const;
  return <main className="game-shell arena-ui chaos chaos-reuse">
  <header className="arena-topbar chaos-arena-topbar"><div className="arena-identity"><Link to="/" className="arena-brand"><img src={logoUrl} alt="Chess League"/></Link><span className="arena-mode"><Flame size={16}/> CAOS // TEMPO REAL</span></div><button type="button" className="chaos-outline" onClick={async()=>{try{await navigator.clipboard.writeText(share);setCopied(true)}catch{setError("Copie o endereço na barra do navegador.")}}}><Copy size={15}/> {copied?"COPIADO":"CONVIDAR AMIGO"}</button></header>
  <div className="arena-workspace chaos-layout"><section className="arena-stage chaos-main">
@@ -157,6 +170,14 @@ function ChaosPage(){
   <div className="chaos-event" role="status" aria-live="polite">{turnState?.event&&turnState.event.until>now?<><strong>{CHAOS_EVENT_LABELS[turnState.event.kind].title}</strong><p>{CHAOS_EVENT_LABELS[turnState.event.kind].text}</p></>:<><strong>🎰 ROLETA DO CAOS</strong><p>Próximo evento em {Math.max(0,Math.ceil(((turnState?.eventsAt??0)-now)/1000))}s: fúria, inversão, super cavalo ou meteoros.</p></>}</div>
   <div className="chaos-log"><h3>ÚLTIMAS AÇÕES</h3>{state?.feed.slice(0,6).map((entry,i)=><div key={i}>{entry}</div>)}</div>
  </aside></div>
+ {banner&&<div key={banner.key} className={"chaos-banner chaos-banner-"+banner.kind} role="status" aria-live="assertive">
+   <ArenaEmblem kind={emblemFor[banner.kind]}/>
+   <div className="chaos-banner-ribbon"><small>ROLETA DO CAOS</small><strong>{CHAOS_EVENT_LABELS[banner.kind].title}</strong><p>{CHAOS_EVENT_LABELS[banner.kind].text}</p></div>
+ </div>}
+ {finished&&turnState&&<div className="chaos-banner chaos-final" role="status">
+   <ArenaEmblem kind={turnState.winner==="draw"?"draw":turnState.winner===side?"win":"lose"}/>
+   <div className="chaos-banner-ribbon"><small>FIM DO CAOS</small><strong>{turnState.winner==="draw"?"EMPATE!":turnState.winner===side?"VITÓRIA!":side==="spec"?name(turnState.winner as Side)+" VENCE":"DERROTA"}</strong><p>CIANO {turnState.scores.w} × {turnState.scores.b} MAGENTA</p><Link to="/" className="chaos-primary chaos-banner-btn">VOLTAR AO LOBBY</Link></div>
+ </div>}
  {error&&<div className="chaos-error" role="alert">{error}</div>}
  </main>;
 }
