@@ -139,6 +139,7 @@ function ChaosPage(){
    if(eventCount>seenEvents.current&&eventKind){seenEvents.current=eventCount;setBanner({kind:eventKind,key:eventCount});
      try{navigator.vibrate?.([60,30,90])}catch{/* ignore */}
      const t=setTimeout(()=>setBanner(null),2600);return ()=>clearTimeout(t)}
+   return undefined;
  },[eventCount,eventKind]);
  const emblemFor={fury:"power",inversion:"turn",superknight:"promote",meteor:"mate"} as const;
  return <main className="game-shell arena-ui chaos chaos-reuse">
