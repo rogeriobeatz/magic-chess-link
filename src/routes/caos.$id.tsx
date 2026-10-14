@@ -64,7 +64,7 @@ function ChaosPage(){
    base.board=Array(64).fill(null);
    for(const p of state.pieces)base.board[p.at]={t:p.type,c:p.side,id:p.id};
    base.turn="w";base.winner=null;base.result=undefined;base.move=0;
-   base.fx=undefined;base.last=undefined;
+   delete base.fx;delete (base as {last?:unknown}).last;
    return base;
  },[state]);
  useEffect(()=>{
